@@ -1,0 +1,124 @@
+# Beam momentum in GeV
+p = 6500.
+# Charge of particles in beam1 and beam2 in units of the proton charge
+Z1 = 1
+Z2 = 1
+# Value of the beta-function in the interaction point (beta-star), in meters
+beta = 24
+# The tune values (the number of betatron transverse oscillation periods in one
+# LHC orbit), from Hostettler PhD, p.25, Table 4.1
+# before_2017:
+Qx = 64.31
+Qy = 59.32
+
+# Number of particles in 1st and 2nd bunch
+N1 = 8e10
+N2 = 8e10
+
+# The traced points of the 1st bunch are selected in the following way. The
+# first bunch Gaussian is sampled in two-dimensional X-Y grid covering
+# +/-N.sigma * sig1.x times +/-N.sigma * sig1.y rectangle with
+# int(sqrt(N.points)) points along each side. Then, all points with
+# sqrt((X/sig1.x)^2 + (Y/sig1.y)^2) distance greater than N.sigma are
+# removed. For every position of the 2nd bunch the points with the
+# corresponding distance from its center, sqrt(((X-x2)/sig2.x)^2 +
+# (Y-y2)/sig2.y)^2), greater than N.sigma are also removed. Positions of all
+# remaining points are traced N.turns in the accelerator.
+N.sigma = 5
+N.points = 10000
+
+# The positions of the selected points (the intersections of their orbits with
+# the X-Y plane at the Interaction Point) are calculated in the accelerator
+# during N.turns
+N.turns = 10000
+
+# Beam-beam interaction is switched on not immediately but after
+# N.no.beam.beam.turns in accelerator. This allows to calculate numerically
+# the undisturbed overlap integral, compare it with the exact analytic formula
+# and estimate the bias of the numerical integration. The final correction is
+# then calculated as the ratio of the numerical integration with and without
+# the beam-beam interaction. The bias is cancelled in the ratio at least
+# partially and this potentially allows to improve the precision.
+N.no.beam.beam.turns = 1000
+
+# 1st and 2nd bunch Gaussian sigmas in X and Y in um
+sig1.x = 100
+sig1.y = 100
+sig2.x = 100
+sig2.y = 100
+
+# The sequence of the relative X,Y positions of the 2nd bunch center
+# w.r.t. the 1st one in um as two white-space separated lists (corresponding
+# to the van der Meer scan steps)
+x2 = 0  25  50  75 100 125 150 175 200 225 250 275 300 325 350 375 400 425 450 475 500
+y2 = 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.
+
+# What should be the output of the computation (a white-space separated list
+# of keywords below, the files will be named like
+# "beam_beam_output_<keyword>.txt.gz" except the shortest
+# "beam_beam_output_summary.txt" which will not be gzip'ed):
+#
+#   "summary"   the main results on the overlap rho1 * rho2 integrals and the
+#               corresponding beam-beam correction. This file will always be
+#               printed, regardless of the settings.
+#
+#   "rx.ry.weights"   for every point: its maximal x and y (ie. the circle radii
+#                     rx, ry in x,x' and y,y' phase spaces, x',y' denote the
+#                     derivatives w.r.t. z multiplied by beta) and "weights" at 
+#                     which the point should be taken in the averages (the
+#                     cenetral points have more weight).
+#                     Format: step x2 y2 point rx ry weight
+#
+#   "integrals" overlap integrals per turn (not averaged), rho1,2 bunch
+#               densities are either modified by the beam-beam electromagnetic
+#               interaction or not, depending on whether the accelerator turn
+#               is greater than "N.no.beam.beam.turns" or not, respectively.
+#               Format: step x2 y2 turn integral
+#
+#   "centers"   averaged over points x- and y-positions per turn
+#               Format: step x2 y2 turn average_x average_y
+#
+#   "points"    the traced points of the 1st bunch after accelerator turn "i",
+#               this file might be very long.
+#               Format: step x/y turn point coordinate derivative_w.r.t._z*(-beta)
+#
+output = rx.ry.weights integrals centers points
+
+# All output files (and also the  copy of the configuration file)
+# will be stored in this subdirectory (it will be created if absent):
+output.directory = beam_beam_lhcb
+
+# Storage of the traced point positions after all accelerator turns might
+# require too much disk space. Instead, one can "select.one.turn.out.of" N turns.
+# Eg. if this parameter is 100, only the positions of the points after
+# 0, 100, 200, ... turns will be stored.
+select.one.turn.out.of = 1000
+
+# Seed for the random number generator. If not given, the current time will be
+# used as a seed.
+# seed = 12121212121
+
+# For the debugging purposes one can set the kick below to a constant
+# X,Y-independent value averaged over the bunch. Ie. the value of this
+# constant angular kick is chosen to be equal to the sum of the kicks of all
+# bunch particles divided by their number. This constant kick only depends on
+# the bunch separation, but not on X,Y. Namely, it can be calculated as the
+# action of the bunch with (Capital) sigma = sqrt(sigma1^2 + sigma2^2) on one
+# particle placed at the distance equal to the separation between the
+# bunches. Ie. bunch one should be substituted by one particle at its center,
+# while sigma of bunch 2 should be changed to this Capital sigma. Such
+# constant kick only shifts the first bunch center, but do not modify its
+# shape, so the resulting luminosity change can be computed using analytic
+# formula.
+#
+# Between 2012 and 2018 the beam-beam correction in vdM scans was approximated
+# by modifying the Gaussian bunch shapes: their centers were shifted according
+# to the average kick described above while their sigmas were modified
+# according to MAD-X simulation ("dynamic-beta" effect). Setting the kick to
+# the constant value below allows to check that the results coincide with the
+# old simulation without dynamic-beta effect, ie. when only taking into
+# account the shift of the bunch centers.
+#
+# To select this option, set constant_kick below to yes,
+# otherwise to no.
+constant_kick = no
