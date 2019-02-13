@@ -1,7 +1,12 @@
-## Comparison of the new and old beam-beam corrections for
-## beta = 24m, Qx,y = 64.31, 59.32 (before 2017), N1 = N2 = 8e10, round beams with sigma = 100um
+## Comparison of the new and old beam-beam corrections for round beams
+##
+## Author V. Balagura, balagura@cern.ch (Jan 2019)
 
-## minimal part of old beam-beam correction code from CERN gitlab:
+## minimal part of old beam-beam correction code from CERN gitlab, 
+## ------------------------------------------------------------
+##
+## Author: Rosen Matev (Rosen.Matev@cern.ch)
+##
 library(plyr)
 library(stringr)
 library(reshape2)
@@ -158,7 +163,7 @@ dynbetaRelLumiChange <- function(sepx, sepy, sigx1, sigx2, sigy1, sigy2, n1, n2,
     dLL
   }
 }
-## -------------------- End of old code --------------------
+## -------------------- End of minimal old beam-beam correction code from CERN gitlab --------------------
 
 library(data.table, warn.conflicts = FALSE)
 library(ggplot2, warn.conflicts = FALSE)
