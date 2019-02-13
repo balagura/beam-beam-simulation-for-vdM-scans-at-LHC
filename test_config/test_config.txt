@@ -1,0 +1,42 @@
+# Integers
+N = 5
+n = 10
+
+# Doubles
+x=1e10
+y =2.
+
+# z will be recognized as an integer, but referenced as a double;
+# after the first such a reference it will be moved from integers to doubles
+ zToDouble= 100
+
+# Strings
+longName123 = 1000e
+# since "=123" is not a number, it will be recognized as a string
+anotherName ==123
+
+# Vector of integers
+vN =1 2 3 4
+
+# Vector of doubles
+vX = 1 2 3 4 5.
+
+# Vector of strings
+vS ==1 2 3 4 5
+
+# vZToDouble will be recognized as a vector of integers, but after the first
+# reference as a vector of doubles it will be changed to doubles
+vZToDouble = 1 2 3 4 5
+
+# iToVDouble will be recognized as an integer, but after the first
+# reference as a vector of doubles it will be changed to that
+iToVDouble = 1
+
+# dToVDouble will be recognized as a double, but after the first
+# reference as a vector of doubles it will be changed to that
+dToVDouble = 1.1
+
+# iToVInt will be recognized as an integer, but after the first
+# reference as a vector of ints it will be changed to that
+iToVInt = 1
+
