@@ -86,7 +86,7 @@ output = rx.ry.weights integrals centers points
 
 # All output files (and also the  copy of the configuration file)
 # will be stored in this subdirectory (it will be created if absent):
-output.directory = beam_beam_lhcb
+output.directory = beam_beam_lhcb_example
 
 # Storage of the traced point positions after all accelerator turns might
 # require too much disk space. Instead, one can "select.one.turn.out.of" N turns.
