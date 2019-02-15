@@ -1,0 +1,126 @@
+\documentclass[paper=a4, fontsize=11pt]{scrartcl} % A4 paper and 11pt font size
+
+\usepackage[T1]{fontenc} % Use 8-bit encoding that has 256 glyphs
+\usepackage[english]{babel} % English language/hyphenation
+\usepackage{amsmath,amsfonts,amsthm} % Math packages
+
+\usepackage{sectsty} % Allows customizing section commands
+\allsectionsfont{\centering \normalfont\scshape} % Make all sections centered, the default font and small caps
+\usepackage{graphicx} % Required to insert images
+
+\setlength{\headheight}{13.6pt} % Customize the height of the header
+
+\numberwithin{equation}{section} % Number equations within sections (i.e. 1.1, 1.2, 2.1, 2.2 instead of 1, 2, 3, 4)
+\numberwithin{figure}{section} % Number figures within sections (i.e. 1.1, 1.2, 2.1, 2.2 instead of 1, 2, 3, 4)
+\numberwithin{table}{section} % Number tables within sections (i.e. 1.1, 1.2, 2.1, 2.2 instead of 1, 2, 3, 4)
+
+%\setlength\parindent{0pt} % Removes all indentation from paragraphs - comment this line for an assignment with lots of text
+
+\newcommand{\horrule}[1]{\rule{\linewidth}{#1}} % Create horizontal rule command with 1 argument of height
+
+\title{
+\normalfont \normalsize
+%\textsc{} \\ [25pt] % Your university, school and/or department name(s)
+%\horrule{0.5pt} \\[0.4cm] % Thin top horizontal rule
+\huge Beam-beam simulation for van der Meer scans  at LHC\\ % The assignment title
+\horrule{2pt} \\[0.5cm] % Thick bottom horizontal rule
+}
+
+\author{Vladislav Balagura} % Your name
+
+\date{\normalsize\today} % Today's date or a custom date
+
+\begin{document}
+
+\maketitle % Print the title
+
+\section{Simulation method}
+
+
+At any LHC IP:
+\[ u = \sqrt{\epsilon \beta^*} \cos(\phi), \]
+\[ u' = du/ds = -\sqrt{\epsilon /\beta^*} \sin(\phi), \]
+since $\beta = \beta^*$ is a minimum of the beta-function, so $d \beta/ds = 0$.
+Here, $u$ denotes either $x$ or $y$ transverse coordinate, 
+$s$ is the longitudinal coordinate, $\epsilon$ - the emittance.
+It is convenient to define a complex variable
+\[ z = u - i\beta^* u' = \sqrt{\epsilon \beta^*} e^{i \phi}. \]
+One turn of the particle in bunch 1 is described in the simulation:
+\[ z_{n+1} = (z_n - i \beta^* \Delta u') e^{2\pi i Q}. \]
+This is done separately in $x$ and in $y$. The angular kick $\Delta u'$
+introduces the coupling between them, since it depends on both $x$ and $y$ as
+\[ \Delta u'_{x,y} =
+-\frac{2 Z_1 Z_2 \alpha \hbar N_2 \beta^*}{\beta_0 p} \frac{\vec{R}}{R^2} (1 -
+e^{-R^2/2\sigma_2^2}). \] Here, $p = m\beta_{rel}\gamma$ is the momentum of
+the particle, $\beta_0 =\frac{2\beta_{rel}}{1+\beta_{rel}^2} \approx 1$ is the
+relativistic velocity of the second bunch in the rest frame of the
+first. $\vec{R}$ is the bunch separation vector pointing from the center of
+the first bunch to the center of the second, $N_2$ is the number of particles
+in the second bunch.
+
+It is assumed that the second bunch is unperturbed. This is justified by the
+argument that its deformations are of the order O(1 $\mu m$) while the
+characteristic bunch sizes and the distance between them is O(100 $\mu m$). For
+simplicity, the round bunches are considered at the moment (as in the old
+MAD-X dynamic-beta simulation), but Basetti-Erskine formula can be implemented
+in the future.
+ 
+The main problem of such simulation is to obtain a good accuracy of 0.1\%
+or better with a reasonable number of sampling points and a minimal CPU time.
+
+Particles of the first bunch are traced individually. In the current model,
+typically, 10 000 particles each making 10 000 turns are sufficient.
+Beam-beam interaction is switched on not immediately but after 1000
+turns. This allows to calculate numerically the undisturbed overlap integral,
+compare it with the exact analytic formula and estimate the bias of the
+numerical integration. The final correction is then calculated as the ratio of
+the numerical integration with and without the beam-beam interaction. In this
+ratio the potential bias cancels at least partially, so this helps to improve
+precision. But in the end, the bias was found negligible, however.
+
+The traced particles of the 1st bunch are distributed in the following
+way. The first bunch Gaussian is sampled in two-dimensional X-Y grid covering
+$\pm 5\sigma \times (\pm 5\sigma)$ rectangle with $\sqrt{10 000} = 100$ points
+along each side. Then, all points farther than $5\sigma$ from the center of
+the first or the second bunch center are removed. The remaining grid of
+$r_x^i$, $r_y^i$ points is two-dimensional, while one needs to cover
+4-dimensional phase space $(x,x',y,y')$. To do that, every point is rotated
+with the random phases $\phi_x^i$, $\phi_y^i$ uniformly distributed in $[0,\
+2\pi]$:
+\[ x_i - i\beta^* x'_i = r_x^i e^{i \phi_x^i}, \]
+\[ y_i - i\beta^* y'_i = r_y^i e^{i \phi_y^i}. \]
+
+During first 1000 accelerator turns without beam-beam the $i$-th point "fills"
+the circle in $(x, -\beta x')$ complex plane with radius $r_x^i$ and similarly
+in $y$. This gives the necessary sampling of every circle, essentially, the
+number of sampling points is 10 000 particles $\times$ 1000 turns. This allows
+to achieve sufficient density of points in four dimensions for precise
+numerical Monte Carlo estimation of the luminosity integral.  Note, this
+integral is taken in $x,y$ two-dimensional space which is a projection of
+4-dimensional space. However, it requires sampling of the full 4-dimensional
+space.
+
+After beam-beam is switched on, there is a "stabilization" period. Typically,
+it is rather short, at least less than 2 000 turns.  The remaining 3 000 -- 10
+000 turns are then also used for averaging. If the beam-beam force is not too
+large, as in typical vdM scans, particles still move approximately around the
+circles, so averaging over these turns effectively increases the sampling.
+
+It is checked that the overlap integrals averaged over groups of 100 turns
+after the stabilization period give the same results modulo statistical
+fluctuations. The final result is taken as an average over the full 3 000 --
+10 000 turns period.
+
+In calculating the overlap integrals the central points should be taken with
+larger weight than the peripheral.  The weight is determined from the
+distribution of radii in two-dimensional Gaussian eg. in $(x,x')$: \[ w_x^i
+\propto r_x / \sigma^2 \exp(-r_x^2/2\sigma^2) dr_x. \] The weights in $x$ and
+in $y$ are multiplied, $w_i = w_x^i w_y^i$, and normalized, $\sum_i w_i = 1$.
+
+Finally, the overlap integral is calculated as a sum of particle weights times
+the 2nd bunch profile density at the point of the particle, ie. as $\sum_i w_i
+\rho_2(x,y)$.
+
+
+
+\end{document}
