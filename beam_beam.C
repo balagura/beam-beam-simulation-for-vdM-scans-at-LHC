@@ -39,7 +39,20 @@ int main(int argc, char** argv) {
   }
   ifstream conf_file(argv[1]);
   Config c(conf_file);
-  boost::filesystem::path output_dir = c.s("output.directory");
+  boost::filesystem::path output_dir;
+  if (c.defined("output.directory")) {
+    output_dir = c.s("output.directory");
+  } else {
+    string inp(argv[1]); // drop .txt from the end of configuration file
+    size_t n = inp.size();
+    if (inp.substr(n-4) == ".txt") {
+      output_dir = inp.substr(0, n-4);
+    } else {
+      cerr << "The name of the configuration file must have the "
+	   << "form *.txt (" << inp << " is given)\n";
+      return 1;
+    }
+  }
   if (boost::filesystem::exists(output_dir)) {
     cerr << "Output directory " << output_dir << " already exists\n";
     return 1;
@@ -48,6 +61,7 @@ int main(int argc, char** argv) {
     cerr << "Can not create output directory " << output_dir << endl;
     return 1;
   }
+  cout << "Output directory: " << output_dir << endl;
   double alpha = 1. / 137.035;
   double hbar = 0.197327e-15; // in Gev * m
   double beta0 = 1;

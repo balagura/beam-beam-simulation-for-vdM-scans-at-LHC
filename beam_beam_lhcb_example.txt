@@ -84,9 +84,14 @@ y2 = 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.
 #
 output = rx.ry.weights integrals centers points
 
-# All output files (and also the  copy of the configuration file)
-# will be stored in this subdirectory (it will be created if absent):
-output.directory = beam_beam_lhcb_example
+# By default all output files and also the copy of the configuration file will
+# be stored in the subdirectory with the name obtained by dropping .txt from
+# the end of the configuration file name, like
+# beam_beam_1.txt -> beam_beam_1/. One can overwrite this rule by giving an
+# explicit name (relative to the current directory or absolute) below.
+# A fresh output subdirectory will be created. If it already exists, the program
+# will terminate without overwriting anything.
+# output.directory = beam_beam_lhcb_example
 
 # Storage of the traced point positions after all accelerator turns might
 # require too much disk space. Instead, one can "select.one.turn.out.of" N turns.
