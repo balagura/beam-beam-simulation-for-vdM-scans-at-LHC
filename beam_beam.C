@@ -284,9 +284,15 @@ int main(int argc, char** argv) {
       const char* xyC = "xy";
       for (size_t xy = 0; xy < 2; ++xy) {
 	for (size_t j_turn = 0; j_turn < N_turns_stored; ++j_turn) {
+	  // last i_turn = N_turn-1 corresponds to
+	  // last j_turn = N_turn/select_runs - 1 in a[j_turn][...],
+	  // (assuming N_turn is a multiple of select_runs),
+	  // for that j_turn was defined above as
+	  // j_turn = (i_turn + 1) / select_turns - 1, so
+	  int i_turn = (j_turn + 1) * select_turns - 1;
 	  for (size_t point = 0; point < N_points_in_step; ++point) {
 	    points << step << " " << xyC[xy] << " "
-		   << j_turn * select_turns << " "
+		   << i_turn << " "
 		   << point << " "
 		   << real(a[j_turn][point][xy]) << " "
 		   << imag(a[j_turn][point][xy]) << '\n';
