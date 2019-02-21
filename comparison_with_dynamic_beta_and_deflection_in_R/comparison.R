@@ -181,10 +181,16 @@ sig1x <- config.scalar('sig1.x') #  in um
 sig1y <- config.scalar('sig1.y')
 sig2x <- config.scalar('sig2.x')
 sig2y <- config.scalar('sig2.y')
+Z1 <- config.scalar('Z1')
+Z2 <- config.scalar('Z2')
 N1 <- config.scalar('N1')
 N2 <- config.scalar('N2')
 Qx <- config.scalar('Qx')
 Qy <- config.scalar('Qy')
+##
+alpha <- 1/137.035
+hbar <- 0.197327e-15 # in Gev * m
+beta0 <- 1
 ##
 stopifnot(sig1x == sig1y & sig1x == sig2x & sig1x == sig2y)
 sig <- sig1x
@@ -197,10 +203,6 @@ vdm.sig <- sqrt(2) * sig
 orbitRelLumiChange <- function(sepx, sepy, sig, n1, n2, beta, Qx, Qy) {
     ## beta in m
     ## sepx,y, sig in um
-    alpha <- 1/137.035
-    hbar <- 0.197327e-15 # in Gev * m
-    beta0 <- 1
-    Z1 <- Z2 <- 1
     k <- 2 * Z1 * Z2 * (n1 + n2) * alpha * hbar / beta0 / p * beta * 1e12 # in um^2
     z <- sepx + 1i * sepy
     r2 <- Re(z * Conj(z))
@@ -213,6 +215,33 @@ orbitRelLumiChange <- function(sepx, sepy, sig, n1, n2, beta, Qx, Qy) {
     dLLx * dLLy
 }
 
+vdm.sig <- sqrt(2) * sig
+## quadrupole kick approximation:
+k.angle <- 2 * Z1 * Z2 * N * alpha * hbar / beta0 / p * 1e12
+
+beta.linearized.rel.lumi.change <- function(x) {
+    kick.x.deriv<- function(x) {
+        ifelse(x==0,
+               k.angle/2/sig^2,
+               k.angle * (-1 / x^2 + (1 / sig^2 + 1 / x^2) *exp(-x^2 / 2/sig^2)))
+    }
+    kick.y.deriv <- function(x) {
+        ifelse(x==0,
+               k.angle/2/sig^2,
+               k.angle / x^2 *(1 - exp(-x^2 / 2/sig^2)))
+    }
+    rel.beta.x <- function(x) {
+        beta * kick.x.deriv(x) / 2 / tan(2*pi*Qx)
+    }
+    rel.beta.y <- function(x) {
+        beta * kick.y.deriv(x) / 2 / tan(2*pi*Qy)
+    }
+    vdm.sigx_mod <- (1 + rel.beta.x(x)/2) * vdm.sig
+    vdm.sigy_mod <- (1 + rel.beta.y(x)/2) * vdm.sig
+    L <- function(vdm.sigx, vdm.sigy) exp(-0.5 * (x/vdm.sigx)^2) / vdm.sigx / vdm.sigy
+    L(vdm.sigx_mod, vdm.sigy_mod)/L(vdm.sig, vdm.sig) - 1
+}
+## ----------------------------------
 old.lumi.w.over.wo.fun <- function(sepx.range = seq(0, 5, by=0.05) * sig) {
     bparams <- list(energy=p,betax=beta,betay=beta,tunex=Qx,tuney=Qy)
     ## Take eg. the x-scan, the y-scan is the same as the beams are round
@@ -225,9 +254,11 @@ old.lumi.w.over.wo.fun <- function(sepx.range = seq(0, 5, by=0.05) * sig) {
                                      ref_nsep=c(10,0))
     orbit.cor <- orbitRelLumiChange(sepx.range,0,sig,N,N,beta,Qx,Qy)
     old <- data.table(separation = sepx.range,
-                      beta = 1 + beta.cor,
+                      beta.MADX = 1 + beta.cor,
                       orbit = orbit.cor)
-    old[, beta.and.orbit := beta * orbit]
+
+    old[, beta.linear := 1 + beta.linearized.rel.lumi.change(separation)]
+    old[, beta.MADX.orbit := beta.MADX * orbit]
     old[, vdm.profile := {
         . <- 2/sqrt(2*pi)/vdm.sig * exp(-separation^2 / 2 / vdm.sig^2)
     }]
@@ -267,7 +298,7 @@ xsec <- {
         int.w.divided.by.wo <- integ.to.ref(x, y, cor)
         int.w.divided.by.wo^2 / cor[1]
     }
-    old.xsec <- with(old.lumi.w.over.wo, xsec.cor(separation, vdm.profile, beta.and.orbit))
+    old.xsec <- with(old.lumi.w.over.wo, xsec.cor(separation, vdm.profile, beta.MADX.orbit))
     new.xsec <- with(new.lumi.w.over.wo, xsec.cor(separation, vdm.profile, cor))
     list(old = old.xsec, new = new.xsec, new.minus.old = new.xsec - old.xsec)
 }
@@ -326,10 +357,10 @@ old.reco.from.new <- {
                                      b2params = bparams,
                                      ref_nsep=c(10,0))
     orbit.cor <- orbitRelLumiChange(n$separation,0,sig.new,N,N,beta,Qx,Qy)
-    old <- n[, `:=`(beta = 1 + beta.cor,
+    old <- n[, `:=`(beta.MADX = 1 + beta.cor,
                     orbit = orbit.cor)]
-    old[, beta.and.orbit := beta * orbit]
-    old[, reco := cor / beta.and.orbit]
+    old[, beta.MADX.orbit := beta.MADX * orbit]
+    old[, reco := cor / beta.MADX.orbit]
     list(old,
          sig.reco.to.sig = sig.new / sig)
 }
@@ -380,13 +411,19 @@ rxy.weight <- fread(file.path(dir, 'rx_ry_weights.txt.gz'),
     theme_set(theme_get() + bw1 + theme(axis.text = txt.16))
 }
 gg.cor <- function() {
-    old <- melt(old.lumi.w.over.wo[,list(separation, beta, orbit, beta.and.orbit)], id.vars = 'separation')
+    old <- melt(old.lumi.w.over.wo[,list(separation, beta.MADX, orbit, beta.MADX.orbit, beta.linear)],
+                id.vars = 'separation')
     combined <- rbind(old,
-                      new.lumi.w.over.wo[, list(separation,
-                                                variable = 'new',
-                                                value = cor)])
-     qplot(data = combined, separation, value, geom=c('point','line'), color=variable) +
+                  new.lumi.w.over.wo[, list(separation,
+                                            variable = 'new',
+                                            value = cor)])
+    ggplot() +
+        geom_line (data = combined[variable!='new'], aes(separation, value, color=variable)) +
+        geom_point(data = combined[variable=='new'], aes(separation, value, color=variable), size=2) +
+        geom_line(data = combined[variable=='new'], aes(separation, value, color=variable), linetype = 'dotted') +
         geom_hline(aes(yintercept = 1), linetype = 'dashed') +
+        scale_colour_manual(values = c(new='black', beta.MADX.orbit='red', beta.MADX='blue',
+                                       orbit='green', beta.linear='purple')) +
         labs(x = 'Beams separation, um',
              y = 'L(with bb) / L(wo bb)')
 }
@@ -394,7 +431,21 @@ gg.cor <- function() {
 gg.vdm.profiles <- function() {
     . <- old.lumi.w.over.wo[, {
         list(separation = separation,
-             old = vdm.profile * beta.and.orbit,
+             old = vdm.profile * beta.MADX.orbit,
+             wo.beam.beam = vdm.profile)
+    }]
+    combined <- rbind(melt(., id.vars = 'separation'),
+                      new.lumi.w.over.wo[, list(separation,
+                                                value = vdm.profile * cor,
+                                                variable = 'new')])
+     qplot(data = combined, separation, value, geom=c('point','line'), color=variable) +
+        labs(x = 'Beams separation, um',
+             y = 'vdM profiles, normalized without beam-beam')
+}
+gg.vdm.profiles <- function() {
+    . <- old.lumi.w.over.wo[, {
+        list(separation = separation,
+             old = vdm.profile * beta.MADX.orbit,
              wo.beam.beam = vdm.profile)
     }]
     combined <- rbind(melt(., id.vars = 'separation'),
@@ -408,7 +459,7 @@ gg.vdm.profiles <- function() {
 
 gg.vdm.profile.change <- function() {
     combined <- rbind(old.lumi.w.over.wo[, list(separation = separation,
-                                                  y = vdm.profile * (beta.and.orbit - 1),
+                                                  y = vdm.profile * (beta.MADX.orbit - 1),
                                                   variable = 'old')],
                       new.lumi.w.over.wo[, list(separation,
                                                 y = vdm.profile * (cor - 1),
