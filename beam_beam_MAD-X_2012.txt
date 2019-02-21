@@ -1,0 +1,184 @@
+# This file describes van der Meer scan in ATLAS simulated using MAD-X in
+# 2012. It is intended to compare this new and the old simulations. The latter
+# was used in LHC in 2012-2018 luminosity calibrations.
+#----------------------------------------------------------------------
+#
+# Beam momentum in GeV
+p = 3500.
+# Charge of particles in beam1 and beam2 in units of the proton charge
+Z1 = 1
+Z2 = 1
+# Value of the beta-function in the interaction point (beta-star), in meters
+beta = 1.5
+# The tune values (the number of betatron transverse oscillation periods in one
+# LHC orbit), from Hostettler PhD, p.25, Table 4.1
+# before_2017:
+Qx = 64.31
+Qy = 59.32
+
+# Number of particles in 1st and 2nd bunch
+N1 = 8.5e10
+N2 = 8.5e10
+
+# The traced points of the 1st bunch are selected in the following way. The
+# first bunch Gaussian is sampled in two-dimensional X-Y grid covering
+# +/-N.sigma * sig1.x times +/-N.sigma * sig1.y rectangle with
+# int(sqrt(N.points)) points along each side. Then, all points with
+# sqrt((X/sig1.x)^2 + (Y/sig1.y)^2) distance greater than N.sigma are
+# removed. For every position of the 2nd bunch the points with the
+# corresponding distance from its center, sqrt(((X-x2)/sig2.x)^2 +
+# (Y-y2)/sig2.y)^2), greater than N.sigma are also removed. Positions of all
+# remaining points are traced N.turns in the accelerator.
+N.sigma = 5
+N.points = 10000
+
+# The positions of the selected points (the intersections of their orbits with
+# the X-Y plane at the Interaction Point) are calculated in the accelerator
+# during N.turns
+N.turns = 10000
+
+# Beam-beam interaction is switched on not immediately but after
+# N.no.beam.beam.turns in accelerator. This allows to calculate numerically
+# the undisturbed overlap integral, compare it with the exact analytic formula
+# and estimate the bias of the numerical integration. The final correction is
+# then calculated as the ratio of the numerical integration with and without
+# the beam-beam interaction. The bias is cancelled in the ratio at least
+# partially and this potentially allows to improve the precision.
+N.no.beam.beam.turns = 1000
+
+# 1st and 2nd bunch Gaussian sigmas in X and Y in um
+sig1.x = 40.
+sig1.y = 40.
+sig2.x = 40.
+sig2.y = 40.
+
+# The sequence of the relative X,Y positions of the 2nd bunch center
+# w.r.t. the 1st one in um as two white-space separated lists (corresponding
+# to the van der Meer scan steps)
+x2 = 0.  10.  20.  30.  40.  50.  60.  70. 80. 90. 100. 110. 120. 130. 140. 150. 160. 170. 180. 190. 200.
+y2 = 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.
+
+# What should be the output of the computation (a white-space separated list
+# of keywords below, the files will be named like
+# "beam_beam_output_<keyword>.txt.gz" except the shortest
+# "beam_beam_output_summary.txt" which will not be gzip'ed):
+#
+#   "summary"   the main results on the overlap rho1 * rho2 integrals and the
+#               corresponding beam-beam correction. This file will always be
+#               printed, regardless of the settings.
+#
+#   "rx.ry.weights"   for every point: its maximal x and y (ie. the circle radii
+#                     rx, ry in x,x' and y,y' phase spaces, x',y' denote the
+#                     derivatives w.r.t. z multiplied by beta) and "weights" at 
+#                     which the point should be taken in the averages (the
+#                     cenetral points have more weight).
+#                     Format: step x2 y2 point rx ry weight
+#
+#   "integrals" overlap integrals per turn (not averaged), rho1,2 bunch
+#               densities are either modified by the beam-beam electromagnetic
+#               interaction or not, depending on whether the accelerator turn
+#               is greater than "N.no.beam.beam.turns" or not, respectively.
+#               Format: step x2 y2 turn integral
+#
+#   "centers"   averaged over points x- and y-positions per turn
+#               Format: step x2 y2 turn average_x average_y
+#
+#   "points"    the traced points of the 1st bunch after accelerator turn "i",
+#               this file might be very long.
+#               Format: step x/y turn point coordinate derivative_w.r.t._z*(-beta)
+#
+output = rx.ry.weights integrals centers points
+
+# By default all output files and also the copy of the configuration file will
+# be stored in the subdirectory with the name obtained by dropping .txt from
+# the end of the configuration file name, like
+# beam_beam_1.txt -> beam_beam_1/. One can overwrite this rule by giving an
+# explicit name (relative to the current directory or absolute) below.
+# A fresh output subdirectory will be created. If it already exists, the program
+# will terminate without overwriting anything.
+# output.directory = beam_beam_lhcb_example
+
+# Storage of the traced point positions after all accelerator turns might
+# require too much disk space. Instead, one can "select.one.turn.out.of" N turns.
+# Eg. if this parameter is 100, only the positions of the points after
+# 0, 100, 200, ... turns will be stored.
+select.one.turn.out.of = 1000
+
+# Seed for the random number generator. If not given, the current time will be
+# used as a seed.
+# seed = 12121212121
+
+# For the debugging purposes one can redefine the kick formula by choosing
+# kick.model below from the list:
+#       precise, const, quadrupole, const.and.quadrupole.
+#
+# By default it is set to "precise" (also when kick.model is left undefined),
+# then the exact kick formula is used.
+
+# "const" means constant X,Y-independent kick equal to the value averaged over
+# the bunch. Ie. the value of this constant angular kick is chosen to be equal
+# to the sum of the kicks of all bunch particles divided by their number. This
+# constant kick only depends on the bunch separation, but not on X,Y. Namely,
+# it can be calculated as the action of the bunch with (Capital) sigma =
+# sqrt(sigma1^2 + sigma2^2) on one particle placed at the distance equal to
+# the separation between the bunches. Ie. bunch one should be substituted by
+# one particle at its center, while sigma of bunch 2 should be changed to this
+# Capital sigma. Such constant kick only shifts the first bunch center, but do
+# not modify its shape, so the resulting luminosity change can be computed
+# using analytic formula.
+#
+# Between 2012 and 2018 the beam-beam correction in vdM scans was approximated
+# by modifying the Gaussian bunch shapes: their centers were shifted according
+# to the average kick described above while their sigmas were modified
+# according to MAD-X simulation ("dynamic-beta" effect). Setting kick.model to
+# "const" below allows to check that the results coincide with the
+# old simulation without dynamic-beta effect, ie. when only taking into
+# account the shift of the bunch centers.
+#
+
+# kick.model = quadrupole models the dynamic-beta correction, ie. the
+# modification of the Gaussian widths. Here, the beam-beam interaction is
+# approximated by the quadrupoles placed at the center of the first bunch. The
+# quadrupole fields are proportional to the x,y (w.r.t. bunch center), the
+# proportionality coefficients are chosen to be equal to the x,y-derivatives
+# of the precise kick again at the first bunch center. Of corse, the beam-beam
+# kick is not linear, so this approximation is good only in the vicinity of
+# the first bunch center, though it is applied here to the full bunch. The
+# advantage of the quadrupole is that one can calculate the associated change
+# of the Gaussian width analytically.
+#
+# It was found that MAD-X'2012 simulation of dynamic-beta effect is close to
+# such idealized quadrupole model. The cross section calibration corrections
+# coincide within 0.1% for the MAD-X'2012 simulated conditions (depending on
+# the random seed in the new simulation I've got 0.03 and 0.06%, this is at
+# the level of stat. errors). There are small visible deviations only at large
+# beam separations. However, the luminosity drops there and this suppresses
+# the contribution to the correction. The discrepancy at large beam
+# separations might be due to the fact that MAD-X simulates also the
+# non-linearities, namely, one turn transfer matrix of the accelerator might
+# slightly depend on the distance from the orbit. This effect is absent in the
+# new simulation. As mentioned above, the effect on the luminosity is
+# negligible (<0.1%) and this also estimates the importance of such
+# non-linearities.
+#
+# Finally, kick.model = const.and.quadrupole simulates both the constant kick
+# (equivalent to the bending magnet) and the quadrupoles (dynamic-beta effect)
+# and gives the results close to the corrections applied between 2012 and
+# 2018. Note, the non-linearities were taken care of in MAD-X'2012
+# dynamic-beta effect but were also neglected in the past for the constant
+# kick.
+#
+# All these options have been implemented only to compare the present
+# simulation with the previous results. To obtain the best precision one
+# should always use
+#
+# kick.model = precise.
+#
+# In this case one does not linearize the kick force (like with
+# const.and.quadrupole) but uses the exact formula. Depending on the vdM scan
+# conditions this gives sizable difference with the old (linear) approximation
+# used at LHC in 2012-2018. The non-linear effects mentioned above are
+# neglected at the moment but they should be negligible according to the
+# comparison with the old MAD-X simulation described above.
+#
+kick.model = precise
