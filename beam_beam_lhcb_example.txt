@@ -146,29 +146,37 @@ select.one.turn.out.of = 1000
 # of the Gaussian width analytically.
 #
 # It was found that MAD-X'2012 simulation of dynamic-beta effect is close to
-# such idealized quadrupole model. There are small deviations only at large
-# beam separations probably due to the fact that MAD-X simulates also the
-# non-linearities (one turn transfer matrix might slightly depend on the
-# distance from the orbit) absent in the idealized picture. The effect on the
-# luminosity is small, however, and this estimates the effect of the
+# such idealized quadrupole model. The cross section calibration corrections
+# coincide within 0.1% for the MAD-X'2012 simulated conditions (depending on
+# the random seed in the new simulation I've got 0.03 and 0.06%, this is at
+# the level of stat. errors). There are small visible deviations only at large
+# beam separations. However, the luminosity drops there and this suppresses
+# the contribution to the correction. The discrepancy at large beam
+# separations might be due to the fact that MAD-X simulates also the
+# non-linearities, namely, one turn transfer matrix of the accelerator might
+# slightly depend on the distance from the orbit. This effect is absent in the
+# new simulation. As mentioned above, the effect on the luminosity is
+# negligible (<0.1%) and this also estimates the importance of such
 # non-linearities.
 #
 # Finally, kick.model = const.and.quadrupole simulates both the constant kick
 # (equivalent to the bending magnet) and the quadrupoles (dynamic-beta effect)
 # and gives the results close to the corrections applied between 2012 and
 # 2018. Note, the non-linearities were taken care of in MAD-X'2012
-# dynamic-beta effect but were neglected for the constant kick.
+# dynamic-beta effect but were also neglected in the past for the constant
+# kick.
 #
-# All these options have been implemented only to compare the present simulation with
-# the previous results. To obtain the best precision one should always use
+# All these options have been implemented only to compare the present
+# simulation with the previous results. To obtain the best precision one
+# should always use
 #
 # kick.model = precise.
 #
-# In this case one does not linearize the kick force (like
-# const.and.quadrupole) but uses the exact formula. This gives sizable
-# difference depending on the vdM scan conditions. The non-linear effects
-# mentioned above are neglected at the moment but they should be much smaller
-# than the bias from the linear force approximation in the previous
-# (2012-2018) approach.
+# In this case one does not linearize the kick force (like with
+# const.and.quadrupole) but uses the exact formula. Depending on the vdM scan
+# conditions this gives sizable difference with the old (linear) approximation
+# used at LHC in 2012-2018. The non-linear effects mentioned above are
+# neglected at the moment but they should be negligible according to the
+# comparison with the old MAD-X simulation described above.
 #
 kick.model = precise
