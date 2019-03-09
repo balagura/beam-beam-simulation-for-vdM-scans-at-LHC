@@ -198,20 +198,19 @@ sig <- sig1x
 stopifnot(N1 == N2)
 N <- N1
 
-vdm.sig <- sqrt(2) * sig
-
 orbitRelLumiChange <- function(sepx, sepy, sig, n1, n2, beta, Qx, Qy) {
     ## beta in m
     ## sepx,y, sig in um
+    vdm.s <- sqrt(2) * sig
     k <- 2 * Z1 * Z2 * (n1 + n2) * alpha * hbar / beta0 / p * beta * 1e12 # in um^2
     z <- sepx + 1i * sepy
     r2 <- Re(z * Conj(z))
-    kick = k / 2 * z / r2 * (1 - exp(-r2 / 2 / vdm.sig^2))
+    kick = k / 2 * z / r2 * (1 - exp(-r2 / 2 / vdm.s^2))
     kick[z == 0] <- 0
     dx <- Re(kick) / tan(pi * Qx)
     dy <- Im(kick) / tan(pi * Qy)
-    dLLx <- exp((-(sepx + dx)^2 + sepx^2) / 2 / vdm.sig^2)
-    dLLy <- exp((-(sepy + dy)^2 + sepy^2) / 2 / vdm.sig^2)
+    dLLx <- exp((-(sepx + dx)^2 + sepx^2) / 2 / vdm.s^2)
+    dLLy <- exp((-(sepy + dy)^2 + sepy^2) / 2 / vdm.s^2)
     dLLx * dLLy
 }
 
