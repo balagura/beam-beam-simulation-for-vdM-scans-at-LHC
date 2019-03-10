@@ -5,7 +5,7 @@ file="beam_beam_MAD-X_2012.txt"
 extension="${file##*.}"
 filename="${file%%.*}"
 
-kicks="precise const quadrupole const.and.quadrupole"
+kicks="precise precise.minus.const const quadrupole const.and.quadrupole"
 for kick in ${kicks}
 do
     # add _kick prefix except for precise
