@@ -103,7 +103,8 @@ int main(int argc, char** argv) {
   string kick_model;
   if (c.defined("kick.model")) {
     kick_model = c.s("kick.model");
-    vector<string> kick_models{"precise", "const", "quadrupole", "const.and.quadrupole"};
+    vector<string> kick_models{"precise", "precise.minus.const",
+	"const", "quadrupole", "const.and.quadrupole"};
     if (find(kick_models.begin(),
 	     kick_models.end(), kick_model) == kick_models.end()) {
       cerr << "Warning: kick.model is set to "
@@ -113,10 +114,11 @@ int main(int argc, char** argv) {
       kick_model = "precise";
     }	
   } else kick_model = "precise";
-  bool is_kick_const            = kick_model == "const";
-  bool is_kick_from_quadrupole  = kick_model == "quadrupole";
-  bool is_kick_const_quadrupole = kick_model == "const.and.quadrupole";
-  bool is_kick_precise          = kick_model == "precise";
+  bool is_kick_const                = kick_model == "const";
+  bool is_kick_from_quadrupole      = kick_model == "quadrupole";
+  bool is_kick_const_quadrupole     = kick_model == "const.and.quadrupole";
+  bool is_kick_precise_minus_const  = kick_model == "precise.minus.const";
+  bool is_kick_precise              = kick_model == "precise";
   if ((is_kick_from_quadrupole || is_kick_const_quadrupole) &&
       any_of(c.vd("y2").begin(),
 	     c.vd("y2").end(), [](double y) { return y!=0; })) {
@@ -151,7 +153,7 @@ int main(int argc, char** argv) {
     Summary() {}
   };
   vector<Summary> summary(N_steps, Summary(N_turns));
-  vector<complex<double> > z(N_points), kick(N_points);
+  vector<complex<double> > z(N_points);
   vector<double> r2(N_points), e(N_points);
   double vdm_sig_sq = sig1_sq + sig2_sq;
   double two_vdm_sig_sq = 2 * vdm_sig_sq;
@@ -244,11 +246,11 @@ int main(int argc, char** argv) {
       xZ[i] = rx[i] * exp(2i * M_PI * drand48());
       yZ[i] = ry[i] * exp(2i * M_PI * drand48());
     }
-    complex<double> kick_const, kick_quadrupole_x, kick_quadrupole_y;
+    complex<double> kick_const, kick_quadrupole_x, kick_quadrupole_y, one_particle_kick;
     // the following variable is normally not used, see explanations below
     // double kick_quadrupole_const_x;
     //
-    if (is_kick_const || is_kick_const_quadrupole) {
+    if (is_kick_const || is_kick_const_quadrupole || is_kick_precise_minus_const) {
       double z2_norm = norm(z2[step]);
       if (z2_norm == 0.) {
 	kick_const = 0;
@@ -344,12 +346,23 @@ int main(int argc, char** argv) {
 	    xZ[i] *= zQx;  // kick = 0
 	    yZ[i] *= zQy;
 	  } else {
-	    kick[i] = k * z[i] / r2[i]  * (1 - e[i]);
+	    one_particle_kick = k * z[i] / r2[i]  * (1 - e[i]);
 	    // The momentum kick is subtracted below because of the minus sign in
 	    // the definition of eg. zX = X - iX'. The kick is added to X',
 	    // so that i*kick is subtracted from zX.
-	    xZ[i] = (xZ[i] - 1i * real( kick[i] )) * zQx;
-	    yZ[i] = (yZ[i] - 1i * imag( kick[i] )) * zQy;
+	    xZ[i] = (xZ[i] - 1i * real( one_particle_kick )) * zQx;
+	    yZ[i] = (yZ[i] - 1i * imag( one_particle_kick )) * zQy;
+	  }
+	}
+      } else if (is_kick_precise_minus_const) {
+	for (size_t i = 0; i < N_points_in_step; ++i) {
+	  if (r2[i] == 0.) {
+	    xZ[i] *= zQx;  // kick = 0
+	    yZ[i] *= zQy;
+	  } else {
+	    one_particle_kick = k * z[i] / r2[i]  * (1 - e[i]) - kick_const;
+	    xZ[i] = (xZ[i] - 1i * real( one_particle_kick )) * zQx;
+	    yZ[i] = (yZ[i] - 1i * imag( one_particle_kick )) * zQy;
 	  }
 	}
       } else if (is_kick_const) {
