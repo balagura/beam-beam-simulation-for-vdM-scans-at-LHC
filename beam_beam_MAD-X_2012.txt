@@ -181,4 +181,13 @@ select.one.turn.out.of = 1000
 # neglected at the moment but they should be negligible according to the
 # comparison with the old MAD-X simulation described above.
 #
+# another possible option is kick.model = precise.minus.const. Its kick =
+# precise kick - average kick. Here, "average.kick" is the same as with
+# kick.model = const. This "precise.minus.const" model is implemented to
+# demonstrate that the "precise" results coincide with the combined correction
+# from kick.model = precise.minus.const and kick.model = const. Ie. the
+# "precise" correction can be decoupled into two: from the orbit change and
+# from the relative change of the bunch shape but with the fixed orbit
+# (ie. using the kick = precise - average).
+#
 kick.model = precise
