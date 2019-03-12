@@ -1,11 +1,15 @@
-inputs = $(wildcard ../beam_beam_MAD-X*.txt)
-dir_targets = $(patsubst ../beam_beam_%.txt, ../beam_beam_%, $(inputs))
-plots = $(patsubst %, %/pdf/gg.cor.pdf, $(dir_targets))
+bb=../beam_beam_
+bbmad=${bb}MAD-X_2012
+sum=summary.txt
+subtr_pdf=pdf/gg.cor.dipole.subtr.and.added.pdf
 
-all: $(plots) ../beam_beam_/pdf/gg.cor.orbit.subtr.and.added.pdf
+${bb}%/pdf/gg.cor.pdf : comparison.R ${bb}%/${sum}
+	Rscript --vanilla $< ${bb}$*
+# $< - name of first prerequisite
+# $* = stem = % in target
 
-../beam_beam_%/pdf/gg.cor.pdf : ../beam_beam_% comparison.R
-	Rscript --vanilla comparison.R $<
-
-../beam_beam_/pdf/gg.cor.orbit.subtr.and.added.pdf : ../beam_beam_MAD-X_2012/Rdata/results.rds precise_minus_const.R
-	Rscript --vanilla precise_minus_const.R $<
+${bbmad}_precise.minus.%/${subtr_pdf} : precise_minus_dipole.R \
+                                        ${bbmad}_precise.minus.%/${sum} \
+                                        ${bbmad}_%/${sum} \
+                                        ${bbmad}/${sum}
+	Rscript --vanilla $< ${bbmad}_precise.minus.$*
