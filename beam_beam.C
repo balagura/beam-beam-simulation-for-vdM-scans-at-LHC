@@ -103,8 +103,17 @@ int main(int argc, char** argv) {
   string kick_model;
   if (c.defined("kick.model")) {
     kick_model = c.s("kick.model");
-    vector<string> kick_models{"precise", "precise.minus.const",
-	"const", "quadrupole", "const.and.quadrupole"};
+    vector<string> kick_models{
+      "precise",
+	"precise.minus.average",
+	"average", 
+	"precise.minus.one.third.of.average",
+	"one.third.of.average",
+	"precise.minus.at.center",
+	"at.center",
+	"quadrupole",
+	"average.and.quadrupole"
+	};
     if (find(kick_models.begin(),
 	     kick_models.end(), kick_model) == kick_models.end()) {
       cerr << "Warning: kick.model is set to "
@@ -114,12 +123,16 @@ int main(int argc, char** argv) {
       kick_model = "precise";
     }	
   } else kick_model = "precise";
-  bool is_kick_const                = kick_model == "const";
-  bool is_kick_from_quadrupole      = kick_model == "quadrupole";
-  bool is_kick_const_quadrupole     = kick_model == "const.and.quadrupole";
-  bool is_kick_precise_minus_const  = kick_model == "precise.minus.const";
-  bool is_kick_precise              = kick_model == "precise";
-  if ((is_kick_from_quadrupole || is_kick_const_quadrupole) &&
+  bool is_kick_precise                = kick_model == "precise";
+  bool is_kick_precise_minus_average  = kick_model == "precise.minus.average";
+  bool is_kick_average                = kick_model == "average";
+  bool is_kick_precise_minus_one_third_of_average = kick_model == "precise.minus.one.third.of.average";
+  bool is_kick_one_third_of_average   = kick_model == "one.third.of.average";
+  bool is_kick_precise_minus_at_center= kick_model == "precise.minus.at.center";
+  bool is_kick_at_center              = kick_model == "at.center";
+  bool is_kick_from_quadrupole        = kick_model == "quadrupole";
+  bool is_kick_average_quadrupole     = kick_model == "average.and.quadrupole";
+  if ((is_kick_from_quadrupole || is_kick_average_quadrupole) &&
       any_of(c.vd("y2").begin(),
 	     c.vd("y2").end(), [](double y) { return y!=0; })) {
     cerr << "The quadrupole kick approximation is limited (here by definition) "
@@ -246,23 +259,16 @@ int main(int argc, char** argv) {
       xZ[i] = rx[i] * exp(2i * M_PI * drand48());
       yZ[i] = ry[i] * exp(2i * M_PI * drand48());
     }
-    complex<double> kick_const, kick_quadrupole_x, kick_quadrupole_y, one_particle_kick;
-    // the following variable is normally not used, see explanations below
-    // double kick_quadrupole_const_x;
-    //
-    if (is_kick_const || is_kick_const_quadrupole || is_kick_precise_minus_const) {
-      double z2_norm = norm(z2[step]);
-      if (z2_norm == 0.) {
-	kick_const = 0;
-      } else {
-	kick_const = k * (-z2[step]) / z2_norm * (1 - exp(-z2_norm / (two_sig2_sq + two_sig1_sq)));
-      }
-    }
-    if (is_kick_from_quadrupole || is_kick_const_quadrupole) {
-      // Y = 0 in quadrupole model
-      double x2 = real(z2[ step ]);
-      double x2_sq = x2 * x2;
-      if (x2 != 0.) {
+    complex<double>  kick_precise,
+      kick_average, kick_quadrupole_x, kick_quadrupole_y, kick_at_center;
+    {
+      double z2_norm = norm(z2[step]); // == x^2 + y^2
+      if (z2_norm != 0.) {
+	kick_average  =  k * (-z2[step]) / z2_norm * (1 - exp(-z2_norm / (two_sig2_sq + two_sig1_sq)));
+	kick_at_center = k * (-z2[step]) / z2_norm * (1 - exp(-z2_norm /  two_sig2_sq));
+	// Note, it is required that Y = 0 in quadrupole model, so real(z2[ step ])^2 == z2_norm
+	double x2 = real(z2[ step ]);
+	double x2_sq = z2_norm;
 	double exp_f = exp(-x2_sq / two_sig2_sq);
 	// the kick is (with the correct direction in complex plane):
 	// k * (z-z2) / |z - z2|^2 * (1 - exp(-|z-z2|^2/2/sig2^2))
@@ -282,16 +288,23 @@ int main(int argc, char** argv) {
 	// y-derivative calculation,
 	// at x,y = 0:  d (kick Y-projection)/dy =
 	kick_quadrupole_y = k / x2_sq * (1 - exp_f);
-	// the following variable is not used, just in case one wants to experiment and add the
-	// constant kick (== bending magnet) to the quadrupole,
-	// ie. approximate kick(x,y) = kick(0,0) + d kick/dx * x + d kick/dy * y:
-	// kick value at bunch 1 center (with the correct sign):
-	//	kick_quadrupole_const_x = k / (-x2) * (1 - exp(-x2_sq / two_sig2_sq));
-	// this was considered as less precise, the constant kick was calculated with CapSigma
-	// = sqrt(sig1^2+sig2^2) instead of just sig2, though the linearization above gives sig2.
-	// This shows again that the orbit shift + dynamic beta approach in 2012-2018 was not
-	// intrinsically logical, but more like applying one patch over another.
+	// Note, quadrupole + average is not equal to linear expansion of
+	// precise kick at bunch 1 center.  Namely, if one makes a linear
+	// approximation of the precise kick(x,y), one gets:
+	//
+	// kick(0,0) + d kick/dx * x + d kick/dy * y,
+	//
+	// where kick(0,0) is calculated with sigma of beam 2 instead of
+	// CapSigma = sqrt(sig1^2+sig2^2).  I.e. kick(0,0) != average kick.
+	//
+	// Using the average kick was considered in 2012 as more precise.
+	// Intrinsically, this is not logical and shows again that the orbit
+	// shift + dynamic beta approach is like applying one patch over
+	// another.
+	kick_at_center = k / (-x2) * (1 - exp(-x2_sq / two_sig2_sq));
       } else {
+	kick_average   = 0;
+	kick_at_center = 0;
 	// 1/k * d kick/dR = -1/R^2 + (1/sig2^2 + 1/R^2) * exp(-R^2/2/sig2^2)
 	// for R->0: 1/k * d kick/dR -> 1/R^2*(-1 + 1 - R^2/2/sig2^2) + 1/sig2^2 = 1/2/sig2^2
 	// x<->y symmetry is not broken by x-separation, so at x,y=0:
@@ -299,7 +312,6 @@ int main(int argc, char** argv) {
 	kick_quadrupole_x = k / two_sig2_sq;
  	// d (kick Y-projection)/dy =
 	kick_quadrupole_y = k / two_sig2_sq;
-	//	kick_quadrupole_const_x = 0;
       }
     }
     for (int i_turn = 0; ; ++i_turn) {
@@ -346,30 +358,64 @@ int main(int argc, char** argv) {
 	    xZ[i] *= zQx;  // kick = 0
 	    yZ[i] *= zQy;
 	  } else {
-	    one_particle_kick = k * z[i] / r2[i]  * (1 - e[i]);
+	    kick_precise = k * z[i] / r2[i]  * (1 - e[i]);
 	    // The momentum kick is subtracted below because of the minus sign in
 	    // the definition of eg. zX = X - iX'. The kick is added to X',
 	    // so that i*kick is subtracted from zX.
-	    xZ[i] = (xZ[i] - 1i * real( one_particle_kick )) * zQx;
-	    yZ[i] = (yZ[i] - 1i * imag( one_particle_kick )) * zQy;
+	    xZ[i] = (xZ[i] - 1i * real( kick_precise )) * zQx;
+	    yZ[i] = (yZ[i] - 1i * imag( kick_precise )) * zQy;
 	  }
 	}
-      } else if (is_kick_precise_minus_const) {
+      } else if (is_kick_precise_minus_average) {
 	for (size_t i = 0; i < N_points_in_step; ++i) {
 	  if (r2[i] == 0.) {
 	    xZ[i] *= zQx;  // kick = 0
 	    yZ[i] *= zQy;
 	  } else {
-	    one_particle_kick = k * z[i] / r2[i]  * (1 - e[i]) - kick_const;
-	    xZ[i] = (xZ[i] - 1i * real( one_particle_kick )) * zQx;
-	    yZ[i] = (yZ[i] - 1i * imag( one_particle_kick )) * zQy;
+	    kick_precise = k * z[i] / r2[i]  * (1 - e[i]) - kick_average;
+	    xZ[i] = (xZ[i] - 1i * real( kick_precise )) * zQx;
+	    yZ[i] = (yZ[i] - 1i * imag( kick_precise )) * zQy;
 	  }
 	}
-      } else if (is_kick_const) {
+      } else if (is_kick_average) {
 	for (size_t i = 0; i < N_points_in_step; ++i) {
-	  // apply kick_const - the same for all z[i]
-	  xZ[i] = (xZ[i] - 1i * real( kick_const )) * zQx;
-	  yZ[i] = (yZ[i] - 1i * imag( kick_const )) * zQy;
+	  // apply kick_average - the same for all z[i]
+	  xZ[i] = (xZ[i] - 1i * real( kick_average )) * zQx;
+	  yZ[i] = (yZ[i] - 1i * imag( kick_average )) * zQy;
+	}
+      } else if (is_kick_precise_minus_one_third_of_average) {
+	for (size_t i = 0; i < N_points_in_step; ++i) {
+	  if (r2[i] == 0.) {
+	    xZ[i] *= zQx;  // kick = 0
+	    yZ[i] *= zQy;
+	  } else {
+	    kick_precise = k * z[i] / r2[i]  * (1 - e[i]) - kick_average / 3.0;
+	    xZ[i] = (xZ[i] - 1i * real( kick_precise )) * zQx;
+	    yZ[i] = (yZ[i] - 1i * imag( kick_precise )) * zQy;
+	  }
+	}
+      } else if (is_kick_one_third_of_average) {
+	for (size_t i = 0; i < N_points_in_step; ++i) {
+	  // apply kick_average / 3.0 - the same for all z[i]
+	  xZ[i] = (xZ[i] - 1i / 3.0 * real( kick_average )) * zQx;
+	  yZ[i] = (yZ[i] - 1i / 3.0 * imag( kick_average )) * zQy;
+	}
+      } else if (is_kick_precise_minus_at_center) {
+	for (size_t i = 0; i < N_points_in_step; ++i) {
+	  if (r2[i] == 0.) {
+	    xZ[i] *= zQx;  // kick = 0
+	    yZ[i] *= zQy;
+	  } else {
+	    kick_precise = k * z[i] / r2[i]  * (1 - e[i]) - kick_at_center;
+	    xZ[i] = (xZ[i] - 1i * real( kick_precise )) * zQx;
+	    yZ[i] = (yZ[i] - 1i * imag( kick_precise )) * zQy;
+	  }
+	}
+      } else if (is_kick_at_center) {
+	for (size_t i = 0; i < N_points_in_step; ++i) {
+	  // apply kick_at_center - the same for all z[i]
+	  xZ[i] = (xZ[i] - 1i * real( kick_at_center )) * zQx;
+	  yZ[i] = (yZ[i] - 1i * imag( kick_at_center )) * zQy;
 	}
       } else if (is_kick_from_quadrupole) {
 	for (size_t i = 0; i < N_points_in_step; ++i) {
@@ -378,10 +424,10 @@ int main(int argc, char** argv) {
 	  xZ[i] = (xZ[i] - 1i * kick_quadrupole_x * real( xZ[i] )) * zQx;
 	  yZ[i] = (yZ[i] - 1i * kick_quadrupole_y * real( yZ[i] )) * zQy;
 	}
-      } else if (is_kick_const_quadrupole) {
+      } else if (is_kick_average_quadrupole) {
 	for (size_t i = 0; i < N_points_in_step; ++i) {
-	  // apply both the constant and quadrupole kicks
-	  xZ[i] = (xZ[i] - 1i * (kick_const +
+	  // apply both the averaged constant and quadrupole kicks
+	  xZ[i] = (xZ[i] - 1i * (kick_average +
 				 kick_quadrupole_x * real( xZ[i] ))) * zQx;
 	  yZ[i] = (yZ[i] - 1i *  kick_quadrupole_y * real( yZ[i] ))  * zQy;
 	}
