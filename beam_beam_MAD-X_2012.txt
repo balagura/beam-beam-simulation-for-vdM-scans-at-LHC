@@ -109,33 +109,40 @@ select.one.turn.out.of = 1000
 # seed = 12121212121
 
 # For the debugging purposes one can redefine the kick formula by choosing
-# kick.model below from the list:
-#       precise, const, quadrupole, const.and.quadrupole.
+# the "kick.model" parameter below from the list:
+#  precise, 
+#  precise.minus.average,
+#  average, 
+#  precise.minus.one.third.of.average,
+#  one.third.of.average,
+#  precise.minus.at.center,
+#  at.center,
+#  quadrupole,
+#  average.and.quadrupole
 #
 # By default it is set to "precise" (also when kick.model is left undefined),
 # then the exact kick formula is used.
-
-# "const" means constant X,Y-independent kick equal to the value averaged over
-# the bunch. Ie. the value of this constant angular kick is chosen to be equal
-# to the sum of the kicks of all bunch particles divided by their number. This
-# constant kick only depends on the bunch separation, but not on X,Y. Namely,
-# it can be calculated as the action of the bunch with (Capital) sigma =
-# sqrt(sigma1^2 + sigma2^2) on one particle placed at the distance equal to
-# the separation between the bunches. Ie. bunch one should be substituted by
-# one particle at its center, while sigma of bunch 2 should be changed to this
-# Capital sigma. Such constant kick only shifts the first bunch center, but do
-# not modify its shape, so the resulting luminosity change can be computed
-# using analytic formula.
+#
+# "average" means constant X,Y-independent kick equal to the value averaged
+# over the bunch. Ie. the value of this constant angular kick is chosen to be
+# equal to the sum of the kicks of all bunch particles divided by their
+# number. This constant average kick only depends on the bunch separation, but
+# not on X,Y. Namely, it can be calculated as the action of the bunch with
+# (Capital) sigma = sqrt(sigma1^2 + sigma2^2) on one particle placed at the
+# distance equal to the separation between the bunches. Ie. bunch one should
+# be substituted by one particle at its center, while sigma of bunch 2 should
+# be changed to this Capital sigma. Such constant kick only shifts the first
+# bunch center, but do not modify its shape, so the resulting luminosity
+# change can be computed using analytic formula.
 #
 # Between 2012 and 2018 the beam-beam correction in vdM scans was approximated
 # by modifying the Gaussian bunch shapes: their centers were shifted according
 # to the average kick described above while their sigmas were modified
 # according to MAD-X simulation ("dynamic-beta" effect). Setting kick.model to
-# "const" below allows to check that the results coincide with the
+# "average" below allows to check that the results coincide with the
 # old simulation without dynamic-beta effect, ie. when only taking into
 # account the shift of the bunch centers.
 #
-
 # kick.model = quadrupole models the dynamic-beta correction, ie. the
 # modification of the Gaussian widths. Here, the beam-beam interaction is
 # approximated by the quadrupoles placed at the center of the first bunch. The
@@ -156,17 +163,17 @@ select.one.turn.out.of = 1000
 # the contribution to the correction. The discrepancy at large beam
 # separations might be due to the fact that MAD-X simulates also the
 # non-linearities, namely, one turn transfer matrix of the accelerator might
-# slightly depend on the distance from the orbit. This effect is absent in the
-# new simulation. As mentioned above, the effect on the luminosity is
+# slightly depend on the distance from the orbit. This effect is absent in
+# this simulation. As mentioned above, the effect on the luminosity is
 # negligible (<0.1%) and this also estimates the importance of such
 # non-linearities.
 #
-# Finally, kick.model = const.and.quadrupole simulates both the constant kick
-# (equivalent to the bending magnet) and the quadrupoles (dynamic-beta effect)
-# and gives the results close to the corrections applied between 2012 and
-# 2018. Note, the non-linearities were taken care of in MAD-X'2012
-# dynamic-beta effect but were also neglected in the past for the constant
-# kick.
+# kick.model = average.and.quadrupole simulates the sum of the constant
+# average kick (equivalent to the bending magnet) and the quadrupole kick
+# (dynamic-beta effect) and gives the results close to the overall corrections
+# applied between 2012 and 2018. Note, the non-linearities were taken care of
+# in MAD-X'2012 dynamic-beta effect but were also neglected in the past for
+# the constant average kick.
 #
 # All these options have been implemented only to compare the present
 # simulation with the previous results. To obtain the best precision one
@@ -175,19 +182,38 @@ select.one.turn.out.of = 1000
 # kick.model = precise.
 #
 # In this case one does not linearize the kick force (like with
-# const.and.quadrupole) but uses the exact formula. Depending on the vdM scan
-# conditions this gives sizable difference with the old (linear) approximation
-# used at LHC in 2012-2018. The non-linear effects mentioned above are
-# neglected at the moment but they should be negligible according to the
-# comparison with the old MAD-X simulation described above.
+# average.and.quadrupole) but uses the exact formula. Depending on the vdM
+# scan conditions this gives sizable difference with the old (linear)
+# approximation used at LHC in 2012-2018. The non-linear effects mentioned
+# above are neglected at the moment but they should be negligible according to
+# the comparison with the old MAD-X simulation described above.
 #
-# another possible option is kick.model = precise.minus.const. Its kick =
+# To debug separately the influence of the dipole orbit shift, there are 3
+# more options:
+#   kick.model = precise.minus.average
+#   kick.model = precise.minus.one.third.of.average
+#   kick.model = precise.minus.at.center
+#
+# For the first, "precise.minus.average", the kick is equal to
 # precise kick - average kick. Here, "average.kick" is the same as with
-# kick.model = const. This "precise.minus.const" model is implemented to
+# kick.model = average. This "precise.minus.average" model is implemented to
 # demonstrate that the "precise" results coincide with the combined correction
-# from kick.model = precise.minus.const and kick.model = const. Ie. the
+# from kick.model = precise.minus.average and kick.model = average. Ie. the
 # "precise" correction can be decoupled into two: from the orbit change and
 # from the relative change of the bunch shape but with the fixed orbit
 # (ie. using the kick = precise - average).
+#
+# The kick in the model "precise.minus.one.third.of.average" is equal to
+# precise kick - average kick / 3. The factor 3 here is chosen arbitrarily to
+# demonstrate that even for an arbitrary dipole magnitude the "precise"
+# correction still decouples into the corresponding dipole orbit change and
+# the correction due to the remaining precise kick - dipole kick. In this case
+# "precise" = "precise.minus.one.third.of.average" + "one.third.of.average".
+# The kick in the model "one.third.of.average" is constant and equal to
+# average kick / 3.
+#
+# Similarly,
+# "precise" = "precise.minus.at.center" + "at.center", where
+# "at.center" means the kick exerted by bunch 2 in the center of bunch 1.
 #
 kick.model = precise
