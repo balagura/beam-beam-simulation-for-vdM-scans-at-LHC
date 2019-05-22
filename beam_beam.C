@@ -81,7 +81,10 @@ int main(int argc, char** argv) {
   int N_points = c("N.points");
   int N_points_in_step; // <= N_points
   int N_no_bb = c("N.no.beam.beam.turns");
-  int N_turns = c("N.turns");
+  // Normally, the luminosity is stable in less than 2000 turns (default)
+  // after switching beam-beam ON
+  int N_stabilization_turns =
+    c.defined("N.stabilization.turns") ? c("N.stabilization.turns") : 2000;
   double N1 = c["N1"];
   double N2 = c["N2"];
   int N_steps = c.vd("x2").size();
@@ -89,6 +92,21 @@ int main(int argc, char** argv) {
   for (int step = 0; step < N_steps; ++step) {
     z2[step] = complex<double>(c.vd("x2")[step], c.vd("y2")[step]);
   }
+  vector<long int> N_transitional_turns;
+  if (c.defined("N.transitional.turns")) {
+    N_transitional_turns = c.vl("N.transitional.turns");
+    // N.transitional.turns can be a vector with N_steps elements
+    // or just one number used for all steps.
+    // In the latter case replicate it to form a vector:
+    if (N_transitional_turns.size() == 1)
+      N_transitional_turns.resize(N_steps, N_transitional_turns[0]);
+  } else // by default use 1000 turns for all steps
+    N_transitional_turns.resize(N_steps, 1000);
+  // Total number of turns
+  int N_turns = c("N.turns");;
+  // store xZ, yZ once per "select_turns" turns
+  int select_turns = c("select.one.turn.out.of");
+  int N_turns_stored = N_turns / select_turns;
   double sig1 = c["sig1.x"];
   double sig2 = c["sig2.x"];
   double sig1_sq = sig1 * sig1;
@@ -103,7 +121,7 @@ int main(int argc, char** argv) {
   string kick_model;
   if (c.defined("kick.model")) {
     kick_model = c.s("kick.model");
-    vector<string> kick_models{
+    vector<string> kick_models {
       "precise",
 	"precise.minus.average",
 	"average", 
@@ -153,9 +171,6 @@ int main(int argc, char** argv) {
   // print Config when all type conversions are resolved
   cout << c;
   cout << "Kick model: " << kick_model << endl;
-  // store xZ, yZ once per "select_turns" turns
-  int select_turns = c("select.one.turn.out.of");
-  int N_turns_stored = N_turns / select_turns;
   struct Summary {
     vector<double> integ;
     vector<complex<double> > avr_z;
@@ -205,18 +220,16 @@ int main(int argc, char** argv) {
     cout << "Step " << step+1 << endl;
     // initialization
     N_points_in_step = 0;
-    {
-      for (int ix=0; ix<N_sqrt; ++ix) {
-	for (int iy=0; iy<N_sqrt; ++iy) {
-	  complex<double> z1(rXY_bins[ix], rXY_bins[iy]);
-	  // select only the intersection of two 5*sig circles around bunches
-	  // from 5sig X 5sig rectangle:
-	  if (norm(z1)            < sig_sq_limit &&
-	      norm(z1 - z2[step]) < sig_sq_limit) {
-	    rx[N_points_in_step] = real(z1);
-	    ry[N_points_in_step] = imag(z1);
-	    ++N_points_in_step;
-	  }
+    for (int ix=0; ix<N_sqrt; ++ix) {
+      for (int iy=0; iy<N_sqrt; ++iy) {
+	complex<double> z1(rXY_bins[ix], rXY_bins[iy]);
+	// select only the intersection of two 5*sig circles around bunches
+	// from 5sig X 5sig rectangle:
+	if (norm(z1)            < sig_sq_limit &&
+	    norm(z1 - z2[step]) < sig_sq_limit) {
+	  rx[N_points_in_step] = real(z1);
+	  ry[N_points_in_step] = imag(z1);
+	  ++N_points_in_step;
 	}
       }
     }
@@ -329,6 +342,25 @@ int main(int argc, char** argv) {
       // always store integ, avr_z
       // summary[step].avr_z[i_turn] are .integ[i_turn] are initialized by zeros
       // as any vector of doubles
+      double transitional_weight = 0;
+      {
+	int i_turn_w_bb = i_turn - (N_no_bb - 1); // zero for i_turn = 0 ... N_no_bb-1,
+	// first positive kick for i_turn = N_no_bb
+	if (i_turn_w_bb <= 0) {
+	  transitional_weight = 0;
+	} else if (i_turn_w_bb < N_transitional_turns[ step ]) {
+	  transitional_weight = double(i_turn_w_bb) / N_transitional_turns[ step ];
+	} else {
+	  transitional_weight = 1;
+	}
+      }
+      double
+	k_transition_weighted                 = k                 * transitional_weight;
+      complex<double>
+	kick_average_transition_weighted      = kick_average      * transitional_weight,
+	kick_quadrupole_x_transition_weighted = kick_quadrupole_x * transitional_weight,
+	kick_quadrupole_y_transition_weighted = kick_quadrupole_y * transitional_weight,
+	kick_at_center_transition_weighted    = kick_at_center    * transitional_weight;
       for (int i = 0; i < N_points_in_step; ++i) {
 	z[i] = complex<double>( real( xZ[i] ), real( yZ[i] ));
 	summary[step].avr_z[i_turn] += z[i] * w[i];
@@ -358,7 +390,7 @@ int main(int argc, char** argv) {
 	    xZ[i] *= zQx;  // kick = 0
 	    yZ[i] *= zQy;
 	  } else {
-	    kick_precise = k * z[i] / r2[i]  * (1 - e[i]);
+	    kick_precise = k_transition_weighted * z[i] / r2[i]  * (1 - e[i]);
 	    // The momentum kick is subtracted below because of the minus sign in
 	    // the definition of eg. zX = X - iX'. The kick is added to X',
 	    // so that i*kick is subtracted from zX.
@@ -372,7 +404,9 @@ int main(int argc, char** argv) {
 	    xZ[i] *= zQx;  // kick = 0
 	    yZ[i] *= zQy;
 	  } else {
-	    kick_precise = k * z[i] / r2[i]  * (1 - e[i]) - kick_average;
+	    kick_precise =
+	      k_transition_weighted * z[i] / r2[i]  * (1 - e[i]) -
+	      kick_average_transition_weighted;
 	    xZ[i] = (xZ[i] - 1i * real( kick_precise )) * zQx;
 	    yZ[i] = (yZ[i] - 1i * imag( kick_precise )) * zQy;
 	  }
@@ -380,8 +414,8 @@ int main(int argc, char** argv) {
       } else if (is_kick_average) {
 	for (size_t i = 0; i < N_points_in_step; ++i) {
 	  // apply kick_average - the same for all z[i]
-	  xZ[i] = (xZ[i] - 1i * real( kick_average )) * zQx;
-	  yZ[i] = (yZ[i] - 1i * imag( kick_average )) * zQy;
+	  xZ[i] = (xZ[i] - 1i * real( kick_average_transition_weighted )) * zQx;
+	  yZ[i] = (yZ[i] - 1i * imag( kick_average_transition_weighted )) * zQy;
 	}
       } else if (is_kick_precise_minus_one_third_of_average) {
 	for (size_t i = 0; i < N_points_in_step; ++i) {
@@ -389,7 +423,9 @@ int main(int argc, char** argv) {
 	    xZ[i] *= zQx;  // kick = 0
 	    yZ[i] *= zQy;
 	  } else {
-	    kick_precise = k * z[i] / r2[i]  * (1 - e[i]) - kick_average / 3.0;
+	    kick_precise =
+	      k_transition_weighted * z[i] / r2[i]  * (1 - e[i]) -
+	      kick_average_transition_weighted / 3.0;
 	    xZ[i] = (xZ[i] - 1i * real( kick_precise )) * zQx;
 	    yZ[i] = (yZ[i] - 1i * imag( kick_precise )) * zQy;
 	  }
@@ -397,8 +433,8 @@ int main(int argc, char** argv) {
       } else if (is_kick_one_third_of_average) {
 	for (size_t i = 0; i < N_points_in_step; ++i) {
 	  // apply kick_average / 3.0 - the same for all z[i]
-	  xZ[i] = (xZ[i] - 1i / 3.0 * real( kick_average )) * zQx;
-	  yZ[i] = (yZ[i] - 1i / 3.0 * imag( kick_average )) * zQy;
+	  xZ[i] = (xZ[i] - 1i / 3.0 * real( kick_average_transition_weighted )) * zQx;
+	  yZ[i] = (yZ[i] - 1i / 3.0 * imag( kick_average_transition_weighted )) * zQy;
 	}
       } else if (is_kick_precise_minus_at_center) {
 	for (size_t i = 0; i < N_points_in_step; ++i) {
@@ -414,22 +450,22 @@ int main(int argc, char** argv) {
       } else if (is_kick_at_center) {
 	for (size_t i = 0; i < N_points_in_step; ++i) {
 	  // apply kick_at_center - the same for all z[i]
-	  xZ[i] = (xZ[i] - 1i * real( kick_at_center )) * zQx;
-	  yZ[i] = (yZ[i] - 1i * imag( kick_at_center )) * zQy;
+	  xZ[i] = (xZ[i] - 1i * real( kick_at_center_transition_weighted )) * zQx;
+	  yZ[i] = (yZ[i] - 1i * imag( kick_at_center_transition_weighted )) * zQy;
 	}
       } else if (is_kick_from_quadrupole) {
 	for (size_t i = 0; i < N_points_in_step; ++i) {
 	  // quadrupole kick in x = kick_quadrupole_x * x,
 	  // and same for y
-	  xZ[i] = (xZ[i] - 1i * kick_quadrupole_x * real( xZ[i] )) * zQx;
-	  yZ[i] = (yZ[i] - 1i * kick_quadrupole_y * real( yZ[i] )) * zQy;
+	  xZ[i] = (xZ[i] - 1i * kick_quadrupole_x_transition_weighted * real( xZ[i] )) * zQx;
+	  yZ[i] = (yZ[i] - 1i * kick_quadrupole_y_transition_weighted * real( yZ[i] )) * zQy;
 	}
       } else if (is_kick_average_quadrupole) {
 	for (size_t i = 0; i < N_points_in_step; ++i) {
 	  // apply both the averaged constant and quadrupole kicks
-	  xZ[i] = (xZ[i] - 1i * (kick_average +
-				 kick_quadrupole_x * real( xZ[i] ))) * zQx;
-	  yZ[i] = (yZ[i] - 1i *  kick_quadrupole_y * real( yZ[i] ))  * zQy;
+	  xZ[i] = (xZ[i] - 1i * (kick_average_transition_weighted +
+				 kick_quadrupole_x_transition_weighted * real( xZ[i] ))) * zQx;
+	  yZ[i] = (yZ[i] - 1i *  kick_quadrupole_y_transition_weighted * real( yZ[i] ))  * zQy;
 	}
       }
     }
@@ -468,15 +504,15 @@ int main(int argc, char** argv) {
     }    
     summary[step].int0_rel_err =
       sqrt(sd_int0 / (N_no_bb - 1.) / double(N_no_bb)) / summary[step].int0;
-    // assume that after 2000 turns the distribution stabilizes
+    // assume that after N_stabilization_turns the distribution stabilizes
     summary[step].int_to_int0_correction =
-      accumulate(summary[step].integ.begin() + N_no_bb + 2000,
+      accumulate(summary[step].integ.begin() + N_no_bb + N_stabilization_turns,
 		 summary[step].integ.end(), 0.)
-      / (summary[step].integ.size() - 2000 - N_no_bb) / summary[step].int0;
+      / (summary[step].integ.size() - N_stabilization_turns - N_no_bb) / summary[step].int0;
     summary[step].z =
-      accumulate(summary[step].avr_z.begin() + N_no_bb + 2000,
+      accumulate(summary[step].avr_z.begin() + N_no_bb + N_stabilization_turns,
 		 summary[step].avr_z.end(), complex<double>(0, 0))
-      / complex<double>(summary[step].avr_z.size() - 2000 - N_no_bb, 0);
+      / complex<double>(summary[step].avr_z.size() - N_stabilization_turns - N_no_bb, 0);
     {
       double r2 = norm( z2[step] );
       if (r2 == 0) {
