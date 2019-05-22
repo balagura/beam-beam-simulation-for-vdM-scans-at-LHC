@@ -30,11 +30,6 @@ N2 = 8e10
 N.sigma = 5
 N.points = 10000
 
-# The positions of the selected points (the intersections of their orbits with
-# the X-Y plane at the Interaction Point) are calculated in the accelerator
-# during N.turns
-N.turns = 10000
-
 # Beam-beam interaction is switched on not immediately but after
 # N.no.beam.beam.turns in accelerator. This allows to calculate numerically
 # the undisturbed overlap integral, compare it with the exact analytic formula
@@ -43,6 +38,26 @@ N.turns = 10000
 # the beam-beam interaction. The bias is cancelled in the ratio at least
 # partially and this potentially allows to improve the precision.
 N.no.beam.beam.turns = 1000
+
+# Beam-beam interaction can be switched on not abruptly but "adiabatically",
+# linearly from zero to its value during N.transitional.turns
+#
+# N.transitional.turns can be omitted, then it is assigned to 1000 by default
+N.transitional.turns = 1000
+
+# After beam-beam is fully switched on, one should wait for the
+# stabilization. Normally, it is reached after <2000 turns (less if beam-beam
+# is switched on adiabatically).
+#
+# If N.stabilization.turns is omitted, it is set by default to 2000
+N.stabilization.turns = 2000
+
+# After N.no.beam.beam.turns + N.transitional.turns + N.stabilization.turns
+# turns, the positions of the selected points (the intersections of their
+# orbits with the X-Y plane at the Interaction Point) are calculated in the
+# accelerator during N.turns.with.beam.beam. This is the period when the
+# luminosity correction is determined.
+N.turns.with.beam.beam = 5000
 
 # 1st and 2nd bunch Gaussian sigmas in X and Y in um
 sig1.x = 100

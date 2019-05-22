@@ -92,6 +92,9 @@ int main(int argc, char** argv) {
   for (int step = 0; step < N_steps; ++step) {
     z2[step] = complex<double>(c.vd("x2")[step], c.vd("y2")[step]);
   }
+  int N_transitional_turns =
+    c.defined("N.transitional.turns") ? c("N.transitional.turns") : 1000;
+  /*
   vector<long int> N_transitional_turns;
   if (c.defined("N.transitional.turns")) {
     N_transitional_turns = c.vl("N.transitional.turns");
@@ -102,8 +105,12 @@ int main(int argc, char** argv) {
       N_transitional_turns.resize(N_steps, N_transitional_turns[0]);
   } else // by default use 1000 turns for all steps
     N_transitional_turns.resize(N_steps, 1000);
-  // Total number of turns
-  int N_turns = c("N.turns");;
+  */
+  // Total number of turns with stabilized beam-beam
+  int N_turns_with_beam_beam =
+    c.defined("N.turns.with.beam.beam") ? c("N.turns.with.beam.beam") : 5000;
+  int N_turns = N_no_bb + N_stabilization_turns +
+    N_transitional_turns + N_turns_with_beam_beam;
   // store xZ, yZ once per "select_turns" turns
   int select_turns = c("select.one.turn.out.of");
   int N_turns_stored = N_turns / select_turns;
@@ -348,8 +355,8 @@ int main(int argc, char** argv) {
 	// first positive kick for i_turn = N_no_bb
 	if (i_turn_w_bb <= 0) {
 	  transitional_weight = 0;
-	} else if (i_turn_w_bb < N_transitional_turns[ step ]) {
-	  transitional_weight = double(i_turn_w_bb) / N_transitional_turns[ step ];
+	} else if (i_turn_w_bb < N_transitional_turns) {
+	  transitional_weight = double(i_turn_w_bb) / N_transitional_turns;
 	} else {
 	  transitional_weight = 1;
 	}
