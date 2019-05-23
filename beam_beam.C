@@ -195,12 +195,14 @@ int main(int argc, char** argv) {
 
 
   boost::iostreams::filtering_ostream rx_ry_weights, points;
-  bool output_rx_ry_weights = find(c.vs("output").begin(),
-				   c.vs("output").end(),
-				   "rx.ry.weights") != c.vs("output").end();
-  bool output_points = find(c.vs("output").begin(),
-			    c.vs("output").end(),
-			    "points") != c.vs("output").end();
+  bool output_rx_ry_weights =
+    c.defined("output") && find(c.vs("output").begin(),
+				c.vs("output").end(),
+				"rx.ry.weights") != c.vs("output").end();
+  bool output_points =
+    c.defined("output") && find(c.vs("output").begin(),
+				c.vs("output").end(),
+				"points") != c.vs("output").end();
   if (output_rx_ry_weights) {
     rx_ry_weights.push(boost::iostreams::gzip_compressor());
     string file_name = (output_dir / "rx_ry_weights.txt.gz").string();
@@ -579,7 +581,8 @@ int main(int argc, char** argv) {
 	       << imag(summary[step].approx_analytic_z) << "\n";
     }
   }
-  if (find(c.vs("output").begin(),
+  if (c.defined("output") &&
+      find(c.vs("output").begin(),
 	   c.vs("output").end(), "integrals") != c.vs("output").end()) {
     boost::iostreams::filtering_ostream integrals;
     integrals.push(boost::iostreams::gzip_compressor());
@@ -595,7 +598,8 @@ int main(int argc, char** argv) {
       }
     }
   }
-  if (find(c.vs("output").begin(),
+  if (c.defined("output") &&
+      find(c.vs("output").begin(),
 	   c.vs("output").end(), "centers") != c.vs("output").end()) {
     boost::iostreams::filtering_ostream centers;
     centers.push(boost::iostreams::gzip_compressor());

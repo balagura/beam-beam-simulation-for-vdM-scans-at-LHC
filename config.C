@@ -10,7 +10,7 @@ using namespace std;
 long int Config::l(const string& name) const {
   return Config::find_or_fail(ml, name)->second;
 }
-double   Config::d(const string& name) {
+double Config::d(const string& name) {
   // search first in doubles and then also in integers
   map<string, double>::const_iterator i = md.find(name);
   if (i != md.end()) {
@@ -102,6 +102,10 @@ void Config::read(istream& is) {
       string item;
       while (iss >> item) items.push_back(item);
     }
+    if (items.empty()) {
+      // just ignore it
+      return;
+    }      
     char* rest;
     vector<long int> ints(items.size());
     // try to convert all items to long integers, if at least one failed - to doubles
