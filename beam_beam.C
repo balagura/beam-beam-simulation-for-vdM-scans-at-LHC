@@ -546,16 +546,14 @@ int main(int argc, char** argv) {
        << "final correction, i.e. the ratio of the luminosities with and\n"
        << "without beam-beam electromagnetic interaction, for the scan step and\n"
        << "the corresponding beam offset specified in the first three columns.\n"
-       << "The columns 5-8 refer to no-beam-beam case: : analytic and numeric\n"
-       << "integrals and their ratio (\"int0_analytitc\", \"int0\" and\n"
-       << "\"int0_to_analytic\"), and the estimated statistical error of\n"
-       << "\"int0\" (\"int0_err\").\n"
-       << "The (9,10) column pair gives the numerically calculated x-y center of\n"
+       << "The columns 5-8 refer to no-beam-beam case: : theanalytic and numeric\n"
+       << "integrals and their ratio, and the estimated relative statistical\n"
+       << "error of the numeric integral.\n"
+       << "The (9,10) column pair gives the numerically calculated x-y shift of\n"
        << "of the first bunch, while (11,12) and (13,14) pairs give the\n"
-       << "analitically calculated shifts, the first in the coordinates\n"
-       << "beta*(dx/dz, dy/dz) (which should be precise) and the second -\n"
-       << "an estimation in x,y under the assumption that its ratio to the\n"
-       << "first pair is -1/tan(pi*Q).\n";
+       << "analitically calculated values, the first in the coordinates\n"
+       << "beta*(dx/dz, dy/dz) and the second - in (x,y) under the assumption\n"
+       << "that its ratio to the first pair is -1/tan(pi*Q).\n";
   {
     string file_name = (output_dir / "config.txt").string();
     ofstream config_out(file_name);
