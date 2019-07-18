@@ -515,13 +515,13 @@ int main(int argc, char** argv) {
       sqrt(sd_int0 / (N_no_bb - 1.) / double(N_no_bb)) / summary[step].int0;
     // assume that after N_stabilization_turns the distribution stabilizes
     summary[step].int_to_int0_correction =
-      accumulate(summary[step].integ.begin() + N_no_bb + N_stabilization_turns,
+      accumulate(summary[step].integ.end() - N_turns_with_beam_beam,
 		 summary[step].integ.end(), 0.)
-      / (summary[step].integ.size() - N_stabilization_turns - N_no_bb) / summary[step].int0;
+      / N_turns_with_beam_beam / summary[step].int0;
     summary[step].z =
-      accumulate(summary[step].avr_z.begin() + N_no_bb + N_stabilization_turns,
+      accumulate(summary[step].avr_z.end() - N_turns_with_beam_beam,
 		 summary[step].avr_z.end(), complex<double>(0, 0))
-      / complex<double>(summary[step].avr_z.size() - N_stabilization_turns - N_no_bb, 0);
+      / complex<double>(N_turns_with_beam_beam, 0);
     {
       double r2 = norm( z2[step] );
       if (r2 == 0) {
