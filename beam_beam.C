@@ -232,10 +232,9 @@ int main(int argc, char** argv) {
     for (int ix=0; ix<N_sqrt; ++ix) {
       for (int iy=0; iy<N_sqrt; ++iy) {
 	complex<double> z1(rXY_bins[ix], rXY_bins[iy]);
-	// select only the intersection of two 5*sig circles around bunches
-	// from 5sig X 5sig rectangle:
-	if (norm(z1)            < sig_sq_limit &&
-	    norm(z1 - z2[step]) < sig_sq_limit) {
+	// select only 5*sig circle around 1st bunch center
+	// from 5sig X 5sig rectangle
+	if (norm(z1) < sig_sq_limit) {
 	  rx[N_points_in_step] = real(z1);
 	  ry[N_points_in_step] = imag(z1);
 	  ++N_points_in_step;
