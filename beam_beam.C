@@ -336,17 +336,6 @@ int main(int argc, char** argv) {
       }
     }
     for (int i_turn = 0; ; ++i_turn) {
-      if ((i_turn + 1) % select_turns == 0) {
-	// last i_turn = N_turn-1 is written, first i_turn=0 - not
-	// (assuming N_turn is a multiple of select_runs)
-	int j_turn = (i_turn + 1) / select_turns - 1;
-	// last j_turn = N_turn/select_runs - 1
-	for (int point = 0; point < N_points_in_step; ++point) {
-	  a[j_turn][point][0] = xZ[point];
-	  a[j_turn][point][1] = yZ[point];
-	}
-	cout << "  Turn " << i_turn+1 << endl;
-      }
       // always store integ, avr_z
       // summary[step].avr_z[i_turn] are .integ[i_turn] are initialized by zeros
       // as any vector of doubles
@@ -475,6 +464,18 @@ int main(int argc, char** argv) {
 				 kick_quadrupole_x_transition_weighted * real( xZ[i] ))) * zQx;
 	  yZ[i] = (yZ[i] - 1i *  kick_quadrupole_y_transition_weighted * real( yZ[i] ))  * zQy;
 	}
+      }
+      // fill array of points
+      if ((i_turn + 1) % select_turns == 0) {
+	// last i_turn = N_turn-1 is written, first i_turn=0 - not
+	// (assuming N_turn is a multiple of select_runs)
+	int j_turn = (i_turn + 1) / select_turns - 1;
+	// last j_turn = N_turn/select_runs - 1
+	for (int point = 0; point < N_points_in_step; ++point) {
+	  a[j_turn][point][0] = xZ[point];
+	  a[j_turn][point][1] = yZ[point];
+	}
+	cout << "  Turn " << i_turn+1 << endl;
       }
     }
     if (output_points) {
