@@ -1,0 +1,165 @@
+15d14
+< #include <VdmBBDeflect.h>
+77,81c76,77
+<   double Qx = c["Qx"] + sqrt(2) / (c.defined("QxIr") ? c["QxIr"] : 1e4);
+<   double Qy = c["Qy"] + exp(c.defined("QyIr") ? c["QyIr"] : -9);
+<   cout << " Qx Config= " <<  c["Qx"] << "  Qx= " << Qx << " Qy Config= " <<  c["Qy"] << "  Qy= " << Qy << endl;
+---
+>   double Qx = c["Qx"] + sqrt(2) / 1e4;
+>   double Qy = c["Qy"] + exp(-9);
+94,106c90
+<   double sig1 = c["sig1.x"];
+<   double sig2 = c["sig2.x"];
+<   double sig1y = c["sig1.y"];
+<   double sig2y = c["sig2.y"];
+<   double capsigx = sqrt(pow(sig1,2)+pow(sig2,2));
+<   double capsigy = sqrt(pow(sig1y,2)+pow(sig2y,2));
+<   if (c.defined("seed")) {
+<     srand48(c("seed"));
+<   } else {
+<     srand48(time(NULL));
+<   }
+<   int N_steps = c.defined("x2") ? c.vd("x2").size() : c.vd("bsigx2").size();
+---
+>   int N_steps = c.vd("x2").size();
+108d91
+<   vector<complex<double> > bsigz2(N_steps);
+110,120c93
+<     if(c.defined("x2")) {
+<       z2[step] = complex<double>(c.vd("x2")[step], c.vd("y2")[step]) ;
+<       bsigz2[step] = complex<double>(real(z2[step])/sig2, imag(z2[step])/sig2y);
+<     }
+<     else {
+<       bsigz2[step] = complex<double>(c.vd("bsigx2")[step], c.vd("bsigy2")[step]);
+<       z2[step] = complex<double>(sig2*real(bsigz2[step]), sig2y*imag(bsigz2[step]));
+<     }
+<     cout << " step= " << step << " z2= " << z2[step] << " bsigz2= " << bsigz2[step] << endl;
+---
+>     z2[step] = complex<double>(c.vd("x2")[step], c.vd("y2")[step]);
+122,133d94
+<   
+<   int nCalcKickPrecise=0;
+<   double k_vbbd=c["beta"]*1.e6;
+<   double umRoundBeamOffset=1.e-8;
+<   
+<   VdmBBDeflect* vbbd = new VdmBBDeflect((sig2+umRoundBeamOffset)*1.e-3,sig2y*1.e-3,N1,N2);
+<   vbbd->SetBeamParameters(1,1,Qx,Qy,c["p"],1);
+<   
+<   VdmBBDeflect* vbbdCoherent = new VdmBBDeflect((sqrt(2)*sig2+umRoundBeamOffset)*1.e-3,sqrt(2)*sig2y*1.e-3,N1,N2);
+<   vbbdCoherent->SetBeamParameters(1,1,Qx,Qy,c["p"],1);
+<   
+<   
+156,157c117,118
+---
+>   double sig1 = c["sig1.x"];
+>   double sig2 = c["sig2.x"];
+162,165c123,124
+<   double sig_sq_limit = 25 ;
+<   double k_int = 0.5 / M_PI / sig2 / sig2y;
+---
+>   double sig_sq_limit = 25 * sig2_sq;
+>   double k_int = 0.5 / M_PI / sig2_sq;
+169,173d127
+<   bool use_BaseErsk=false;
+<   if(c.defined("BaseErsk")) {
+<     use_BaseErsk=c("BaseErsk") == 0 ? false : true;
+<   }
+<   cout << " use_BaseErsk= " << use_BaseErsk << endl;
+206,209d159
+<   if(use_BaseErsk && (is_kick_from_quadrupole || is_kick_average_quadrupole))  {
+<     cout << " You have requested BaseErsk, but this is not implemented for the quadrupole or average.and.quadrupole  kick_models. Program will now exit " << endl;
+<     return 1;
+<   }
+270,271c220
+<   double rXY_bin = 5. / N_sqrt;
+---
+>   double rXY_bin = 5 * sig1 / N_sqrt;
+276,278c225
+<   vector<double> rxNorm(N_points), ryNorm(N_points);
+<   double w_fact = rXY_bin ;
+---
+>   double w_fact = rXY_bin / sig1_sq;
+280d226
+<   cout << " rXY_bin= " << rXY_bin << " w_fact= " << w_fact << " sig1= " << sig1 << " sig1y= " << sig1y << "  sig_sq_limit= " <<  sig_sq_limit << endl;
+288,290c234
+< 	complex<double> z1(sig1*rXY_bins[ix], sig1y*rXY_bins[iy]);
+< 	complex<double> z1Norm(rXY_bins[ix], rXY_bins[iy]);
+< 	cout << " ix,iy= " << ix << " " << iy << " rXY_bins[ix]= " << rXY_bins[ix] << " rXY_bins[iy]= " << rXY_bins[iy] << endl;
+---
+> 	complex<double> z1(rXY_bins[ix], rXY_bins[iy]);
+293,296c237,238
+< 	if (norm(z1Norm)            < sig_sq_limit &&
+< 	    norm(z1Norm - bsigz2[step]) < sig_sq_limit) {
+---
+> 	if (norm(z1)            < sig_sq_limit &&
+> 	    norm(z1 - z2[step]) < sig_sq_limit) {
+299,300d240
+< 	  rxNorm[N_points_in_step] = real(z1Norm);
+< 	  ryNorm[N_points_in_step] = imag(z1Norm);
+312,315c252,253
+< 	w[i] = exp(-(rxNorm[i] * rxNorm[i] + ryNorm[i] * ryNorm[i])
+< 		   /2.) * rxNorm[i] * ryNorm[i] * w_fact;
+---
+> 	w[i] = exp(-(rx[i] * rx[i] + ry[i] * ry[i])
+> 		   / two_sig1_sq) * rx[i] * ry[i] * w_fact;
+336c274,279
+<     cout << " step= " << step << " First random number: " << drand48() << endl;
+---
+>     if (c.defined("seed")) {
+>       srand48(c("seed"));
+>     } else {
+>       srand48(time(NULL));
+>     }
+>     cout << "First random number: " << drand48() << endl;
+346,362c289,290
+< 	if(use_BaseErsk) {
+< 	  std::pair<double,double> deflectAngCoherent = vbbdCoherent->GetDeflectAngles(real(-z2[step])*1e-3,imag(-z2[step])*1e-3);
+< 	  kick_average = k_vbbd*complex<double>(deflectAngCoherent.first,deflectAngCoherent.second);
+< 	  std::pair<double,double> deflectAng = vbbd->GetDeflectAngles(real(-z2[step])*1e-3,imag(-z2[step])*1e-3);
+< 	  kick_at_center = k_vbbd*complex<double>(deflectAng.first,deflectAng.second);
+< 	  complex<double> kick_average_round =  k * (-z2[step]) / z2_norm * (1 - exp(-z2_norm / (two_sig2_sq + two_sig1_sq)));
+< 	  complex<double> kick_at_center_round =  k * (-z2[step]) / z2_norm * (1 - exp(-z2_norm /  two_sig2_sq));
+< 	  cout << " step= " << step << " real(z2)= " << real(z2[step]) <<  " imag(z2)= " << imag(z2[step]) << " k= " << k
+< 	       << " B*B: kick x,y= " << real(kick_average_round) << " , " << imag(kick_average_round) << "   VdmBBDeflect: kick x,y= " << real(kick_average) << " , " << imag(kick_average)
+< 	       << " VdmBBDeflect/B*B average x,y= " << real(kick_average)/real(kick_average_round) << " , " << (abs(imag(kick_average_round)) > 1.e-10 ? imag(kick_average)/imag(kick_average_round) : 1)
+< 	       << " VdmBBDeflect/B*B center x,y= " << real(kick_at_center)/real(kick_at_center_round) << " , " << (abs(imag(kick_at_center_round)) > 1.e-10 ? imag(kick_at_center)/imag(kick_at_center_round) : 1)
+< 	       << endl;
+< 	}
+< 	else {
+< 	  kick_average  =  k * (-z2[step]) / z2_norm * (1 - exp(-z2_norm / (two_sig2_sq + two_sig1_sq)));
+< 	  kick_at_center = k * (-z2[step]) / z2_norm * (1 - exp(-z2_norm /  two_sig2_sq));
+< 	}
+---
+> 	kick_average  =  k * (-z2[step]) / z2_norm * (1 - exp(-z2_norm / (two_sig2_sq + two_sig1_sq)));
+> 	kick_at_center = k * (-z2[step]) / z2_norm * (1 - exp(-z2_norm /  two_sig2_sq));
+450,451c378
+< 	e[i] = exp(-0.5*(pow(real(z[i])/sig2,2)+pow(imag(z[i])/sig2y,2)));
+---
+> 	e[i] = exp(- r2[i] / two_sig2_sq);
+475,481c402
+< 	    if(use_BaseErsk) {
+< 	      std::pair<double,double> deflectAng = vbbd->GetDeflectAngles(real(z[i])*1e-3,imag(z[i])*1e-3);
+< 	      kick_precise = transitional_weight*k_vbbd*complex<double>(deflectAng.first,deflectAng.second);
+< 	    }
+< 	    else {
+< 	      kick_precise = k_transition_weighted * z[i] / r2[i]  * (1 - e[i]);
+< 	    }
+---
+> 	    kick_precise = k_transition_weighted * z[i] / r2[i]  * (1 - e[i]);
+487,496d407
+< 	    if(use_BaseErsk) {
+< 	      int modCheck(max(1.,5000000.*drand48()));
+< 	      if(nCalcKickPrecise%modCheck == 0) {
+< 		complex<double> kick_round =  k_transition_weighted * z[i] / r2[i]  * (1 - e[i]);
+< 		cout << " ncallGet,modCheck= " << nCalcKickPrecise << " , " <<  modCheck << " step= " << step << " real(z2)= " << real(z2[step]) << " i_turn= " << i_turn << " x,y= " << real(z[i]) << " , " << imag(z[i])
+< 		     << " B*B: kick x,y= " << real(kick_round) << " , " << imag(kick_round) << "   VdmBBDeflect: kick x,y= " << real(kick_precise) << " , " << imag(kick_precise)
+< 		     << " VdmBBDeflect/B*B x,y= " << real(kick_precise)/real(kick_round) << " , " << imag(kick_precise)/imag(kick_round) << endl;
+< 	      }
+< 	    }
+< 	    nCalcKickPrecise++;
+590,593c501,502
+<     summary[step].int0_analytic = 1. / 2. / M_PI / capsigx / capsigy *
+<       exp(-0.5*(pow(real(z2[step])/capsigx,2)+pow(imag(z2[step])/capsigy,2)));
+---
+>     summary[step].int0_analytic = 1. / M_PI / two_vdm_sig_sq *
+>       exp(-norm(z2[step]) / two_vdm_sig_sq);
