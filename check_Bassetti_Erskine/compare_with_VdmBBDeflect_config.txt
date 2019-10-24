@@ -1,0 +1,10 @@
+xmin = -200
+xmax = 200
+ymin = -200
+ymax = 200
+sigx.min = 10
+sigx.max = 200
+sigy.min = 10
+sigy.max = 200
+n = 100000
+n.times.print.E = 100
