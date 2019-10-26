@@ -1,3 +1,6 @@
+#ifndef E_field_hh 
+#define E_field_hh 1
+
 // Bassetti-Erskine beam-beam kick calculation for elliptical and round
 // bunches.
 //
@@ -103,3 +106,5 @@ inline complex<double> E_from_unit_charge_2d_gaussian_times_2pi_epsilon_0(double
   return complex<double>(x_positive ? imag(res) : -imag(res),
 			 y_positive ? real(res) : -real(res));
 }
+
+#endif
