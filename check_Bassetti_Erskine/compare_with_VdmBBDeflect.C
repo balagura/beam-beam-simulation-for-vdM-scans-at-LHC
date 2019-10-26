@@ -1,3 +1,15 @@
+// Cross checks the consistency of the electric fields calculated by
+// 1) E_from_unit_charge_2d_gaussian_times_2pi_epsilon_0() from E_field.hh
+// and 2) the relevant part of "VdmBBDeflect" class functions (copy-pasted
+// to VdmBBDeflect_Bassetti_Erskine_part.C)
+// for Gaussian parameters randomly distributed in the ranges specified in
+// "compare_with_VdmBBDeflect_config.txt".
+//
+// Compile it with "make compare_with_VdmBBDeflect"
+// and run as "compare_with_VdmBBDeflect compare_with_VdmBBDeflect_config.txt"
+
+// Author V. Balagura, balagura@cern.ch (Oct 2019)
+
 #include <E_field.hh>
 #include <config.hh>
 #include <fstream>
