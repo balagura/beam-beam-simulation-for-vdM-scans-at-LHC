@@ -12,7 +12,7 @@
 
 // The program "check_Bassetti_Erskine/compare_with_VdmBBDeflect.C" cross
 // checks that the results returned by the function below are consistent with
-// "VdmBBDeflect" for Gaussian parameters randomly distributed in the ranges
+// "VdmBBDeflect" for N points (eg. 100000) randomly distributed in the ranges
 // specified in "check_Bassetti_Erskine/compare_with_VdmBBDeflect_config.txt".
 //
 // Compile it with "cd check_Bassetti_Erskine; make compare_with_VdmBBDeflect"

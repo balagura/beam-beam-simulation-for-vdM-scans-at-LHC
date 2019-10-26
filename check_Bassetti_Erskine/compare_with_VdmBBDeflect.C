@@ -2,8 +2,9 @@
 // 1) E_from_unit_charge_2d_gaussian_times_2pi_epsilon_0() from E_field.hh
 // and 2) the relevant part of "VdmBBDeflect" class functions (copy-pasted
 // to VdmBBDeflect_Bassetti_Erskine_part.C)
-// for Gaussian parameters randomly distributed in the ranges specified in
-// "compare_with_VdmBBDeflect_config.txt".
+// for N points (eg. 100000, configurable) randomly distributed in the ranges
+// specified in "compare_with_VdmBBDeflect_config.txt" together with fixed
+// Gaussian bunch widths.
 //
 // Compile it with "make compare_with_VdmBBDeflect"
 // and run as "compare_with_VdmBBDeflect compare_with_VdmBBDeflect_config.txt"
