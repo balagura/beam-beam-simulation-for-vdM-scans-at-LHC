@@ -9,7 +9,7 @@ all: beam_beam \
 
 beam_beam : config.hh config.C beam_beam.C Faddeeva.hh Faddeeva.cc E_field.hh bilinear_interpolator.hh \
             gzstream.C gzstream.h
-	g++ -O2 -std=c++14 -I. beam_beam.C Faddeeva.cc config.C gzstream.C -o beam_beam -lz
+	g++ -O2 -std=c++14 -I. beam_beam.C Faddeeva.cc config.C gzstream.C -o beam_beam -lz -pthread
 
 beam_beam_model_validation : config.hh config.C beam_beam_model_validation.C
 	g++ -O2 -std=c++14 -I. beam_beam_model_validation.C config.C -o beam_beam_model_validation \
