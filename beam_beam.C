@@ -434,39 +434,36 @@ int main(int argc, char** argv) {
     srand48(time(NULL));
   }
   //
-  ogzstream output_rx_ry_weights, output_integrals, output_centers,
-    output_integrals_per_circle, output_centers_per_circle, output_points;
-  ofstream output_summary(output_dir + "/summary.txt");
-  bool output_rx_ry_weights_bool = false,
-    output_integrals_bool = false, output_centers_bool = false,
-    output_integrals_per_circle_bool = false, output_centers_per_circle_bool = false,
-    output_points_bool = false;
+  enum OUTPUT {RX_RY_WEIGHTS=0, INTEGRALS=1, CENTERS=2,
+	       INTEGRALS_PER_CIRCLE=3, CENTERS_PER_CIRCLE=4, POINTS=5, N_OUTPUT=6};
+  struct Output{
+    ogzstream os;
+    bool selected;
+    Output() : selected(false) {}
+  } output[N_OUTPUT];
   if (c.defined("output")) {
-    for (auto i = c.vs("output").begin(); i != c.vs("output").end(); ++i) {
-      if        (*i == "rx.ry.weights") {
-	output_rx_ry_weights.open((output_dir + "/rx_ry_weights.txt.gz").c_str());
-	output_rx_ry_weights_bool = true;
-      } else if (*i == "integrals"    ) {
-	output_integrals               .open((output_dir + "/integrals.txt.gz").c_str());
-	output_integrals_bool = true;
-      } else if (*i == "centers"      ) {
-	output_centers                 .open((output_dir + "/centers.txt.gz").c_str());
-	output_centers_bool = true;
-      } else if (*i == "integrals.per.circle"      ) {
-	output_integrals_per_circle    .open((output_dir + "/integrals_per_circle.txt.gz").c_str());
-	output_integrals_per_circle_bool = true;
-      } else if (*i == "centers.per.circle"      ) {
-	output_centers_per_circle      .open((output_dir + "/centers_per_circle.txt.gz").c_str());
-	output_centers_per_circle_bool = true;
-      } else if (*i == "points"       ) {
-	output_points                  .open((output_dir + "/points.txt.gz").c_str());
-	output_points_bool = true;
+    map<string, OUTPUT> m;
+    m["rx_ry_weights"] = RX_RY_WEIGHTS;
+    m["integrals"] = INTEGRALS;
+    m["centers"] = CENTERS;
+    m["integrals_per_circle"] = INTEGRALS_PER_CIRCLE;
+    m["centers_per_circle"] = CENTERS_PER_CIRCLE;
+    m["points"] = POINTS;
+    for (const string& name : c.vs("output")) {
+      string name_ = name;
+      replace(name_.begin(), name_.end(), '.', '_');
+      auto it = m.find(name_);
+      if (it != m.end()) {
+	OUTPUT o = it->second;
+	output[o].os.open((output_dir + "/" + name_ + ".txt.gz").c_str());
+	output[o].selected = true;
       } else {
-	cerr << "Unrecognized output option given: " << *i << ". Terminating" << endl;
+	cerr << "Unrecognized output option given: " << name << ". Terminating" << endl;
 	return 1;
       }	     
     }
   }
+  ofstream output_summary(output_dir + "/summary.txt");
   // store xZ, yZ once per "select_turns" turns
   int select_turns = c.defined("select.one.turn.out.of") ? c("select.one.turn.out.of") : 0;
   int N_points_in_step = 0; // will be calculated later and will be <= than N_points
@@ -515,12 +512,12 @@ int main(int argc, char** argv) {
     double w_sum = accumulate(w.begin(), w.begin() + N_points_in_step, 0.);
     for (int i = 0; i < N_points_in_step; ++i) w[i] = w[i] / w_sum;
   }
-  if (output_rx_ry_weights_bool) {
+  if (output[RX_RY_WEIGHTS].selected) {
     for (size_t i = 0; i < N_points_in_step; ++i) {
-      output_rx_ry_weights << i << " "
-			   << rx[i] << " "
-			   << ry[i] << " "
-			   << w[i]<< '\n';
+      output[RX_RY_WEIGHTS].os << i << " "
+			       << rx[i] << " "
+			       << ry[i] << " "
+			       << w[i]<< '\n';
     }
   }
   //
@@ -547,131 +544,6 @@ int main(int argc, char** argv) {
   //
   // print Config when all type conversions are resolved
   cout << c;
-
-  // // main loop
-  // for (int step = 0; step < N_steps; ++step) {
-  //   struct Summary {
-  //     vector<double> integ;
-  //     vector<complex<double> > avr_z;
-  //     double int0_analytic, int0, int0_to_analytic, int0_rel_err,
-  //       int_to_int0_correction;
-  //     complex<double> z, analytic_kick, approx_analytic_z;      
-  //     Summary(int n_turns) : integ(n_turns), avr_z(n_turns) {}
-  //     Summary() {}
-  //   };
-  //   Summary summary(N_turns);
-  //   cout << "Processing beam separation (" << z2[step] << ") ... " << flush;
-  //   // For every (rx,ry) pair obtain X-X', Y-Y' 4-dimensional
-  //   // coordinates by random rotation around X-X' and Y-Y' circles
-  //   vector<complex<double> > xZ(N_points_in_step), yZ(N_points_in_step);
-  //   for (int i = 0; i < N_points_in_step; ++i) {
-  //     xZ[i] = rx[i] * exp(2i * M_PI * drand48());
-  //     yZ[i] = ry[i] * exp(2i * M_PI * drand48());
-  //   }
-  //   // average field when the first bunch is at -z2[step] and the second is at
-  //   // (0,0):
-  //   complex<double> kick_average = kick_const *
-  //     multi_g.field2_averaged_over_bunch_1(-real(z2[step]), -imag(z2[step]));
-  //   //
-  //   for (int i_turn = 0; i_turn < N_turns; ++i_turn) {
-  //     double transitional_weight = 0;
-  //     {
-  // 	int i_turn_w_bb = i_turn - (N_turns_no_bb - 1); // zero for i_turn = 0 ... N_turns_no_bb-1,
-  // 	// first positive kick for i_turn = N_turns_no_bb
-  // 	if (i_turn_w_bb <= 0) {
-  // 	  transitional_weight = 0;
-  // 	} else if (i_turn_w_bb < N_transitional_turns) {
-  // 	  transitional_weight = double(i_turn_w_bb) / N_transitional_turns;
-  // 	} else {
-  // 	  transitional_weight = 1;
-  // 	}
-  //     }
-  //     double k_transition_weighted = kick_const * transitional_weight;
-  //     complex<double>
-  // 	kick_average_transition_weighted = kick_average * transitional_weight;
-  //     // store all particle coordinates for this turn?
-  //     bool output_points_now = output_points_bool && (i_turn + 1) % select_turns == 0;
-  //     // last i_turn = N_turn-1 is written, first i_turn=0 - not
-  //     // (assuming N_turn is a multiple of select_runs)
-  //     for (int i = 0; i < N_points_in_step; ++i) {
-  // 	complex<double> z1( real( xZ[i] ), real( yZ[i] ));
-  // 	// coordinate in a frame where the 2nd bunch center is at (0,0):
-  // 	complex<double> z_sep = z1 - z2[step];
-  // 	if (i_turn < N_turns_no_bb) {
-  // 	    // first N_turns_no_bb turns without kick to measure the initial, possibly
-  // 	    // biased, integral; then calculate how much the kick changes
-  // 	    // it. Taking the ratio to the initial integral (instead of the exact
-  // 	    // integral) should cancel the bias at least partially and improve
-  // 	    // precision
-  // 	  xZ[i] *= zQx; // kick = 0
-  // 	  yZ[i] *= zQy;
-  // 	} else if (kick_model == PRECISE) {
-  // 	  complex<double> kick;
-  // 	  if (calculate_field_without_interpolation) {
-  // 	    kick = E_field.f(real(z_sep), imag(z_sep));
-  // 	  } else {
-  // 	    kick = E_field(real(z_sep), imag(z_sep));
-  // 	  }
-  // 	  kick *= k_transition_weighted;
-  // 	  // The momentum kick is subtracted below because of the minus sign in
-  // 	  // the definition of eg. zX = X - iX'. The kick is added to X',
-  // 	  // so that i*kick is subtracted from zX.
-  // 	  xZ[i] = (xZ[i] - 1i * real( kick )) * zQx;
-  // 	  yZ[i] = (yZ[i] - 1i * imag( kick )) * zQy;
-  // 	} else if (kick_model == AVERAGE) {
-  // 	  // apply kick_average - the same for all z[i]
-  // 	  xZ[i] = (xZ[i] - 1i * real( kick_average_transition_weighted )) * zQx;
-  // 	  yZ[i] = (yZ[i] - 1i * imag( kick_average_transition_weighted )) * zQy;
-  // 	}
-  // 	// 
-  // 	// always store integ, avr_z. They are initialized by zeros as any
-  // 	// vector of doubles
-  // 	complex<double> new_z1( real( xZ[i] ), real( yZ[i] ));
-  // 	complex<double> new_z_sep = z1 - z2[step];
-  // 	// overlap integral is calculated as a sum of (2nd bunch profile
-  // 	// density * weight) over the sample of 1st bunch "particles"
-  // 	summary.integ[i_turn] += multi_g.not_normalized_density2(real(new_z_sep),
-  // 								 imag(new_z_sep)) * w[i];
-  // 	summary.avr_z[i_turn] += new_z1 * w[i];
-  // 	// calculate and store integrals and points here, after the
-  // 	// propagation through the ring (and after the beam-beam). The points
-  // 	// and integral, therefore, correspond to each other. One could do it
-  // 	// before, then the last propagation through the ring for i_turn =
-  // 	// N_turn-1 could be dropped. However, in this case the first
-  // 	// integral+points always corresponded to the case without beam-beam,
-  // 	// even if N_turns_no_bb=0. So, for this reason and for simplicity the above
-  // 	// logic is chosen.
-  //     } // end of loop over tracked particle-points
-  //     if (output_points_now) {
-  // 	cout << "  Turn " << i_turn+1 << endl;
-  // 	for (size_t i = 0; i < N_points_in_step; ++i) {
-  // 	  output_points << step << " "
-  // 			<< i_turn << " "
-  // 			<< i << " "
-  // 			<< xZ[i] << " " << yZ[i] << '\n';
-  // 	}
-  //     }
-  //     //
-  //     summary.integ[i_turn] *= multi_g.density2_normalization;
-  //   } // end of loop over turns
-  //   if (output_integrals_bool) {
-  //     for (size_t turn = 0; turn < summary.integ.size(); ++turn) {
-  // 	output_integrals << step << " "
-  // 			 << z2[step] << " "
-  // 			 << turn << " "
-  // 			 << summary.integ[turn] << '\n';
-  //     }
-  //   }
-  //   if (output_centers_bool) {
-  //     for (size_t turn = 0; turn < summary.avr_z.size(); ++turn) {
-  // 	output_centers << step << " "
-  // 		       << z2[step] << " "
-  // 		       << turn << " "
-  // 		       << summary.avr_z[turn] << "\n";
-  //     }
-  //   }
-  //   // store summary
-
   // main loop
   for (int step = 0; step < N_steps; ++step) {
     struct Summary {
@@ -725,15 +597,15 @@ int main(int argc, char** argv) {
       summary.atomic_integral_converter = LONG_MAX /
 	max((multi_g.not_normalized_density2(0,0) * max_w), 1.) / 1.0001;
       // 1.0001 makes sure that LONG_MAX is not exceeded even with rounding errors
-      cout << "max_w " << max_w << endl;
+      //
       // For maximal avr_x,y values take maximal initially simulated radii,
       // max(cut_x,y), times 100 for safety (initial circles are distorted by
       // beam-beam, so maximal distance from 0,0 can grow a little, but not by
       // 100 in average).
       summary.atomic_avr_xy_converter = LONG_MAX / (max(multi_g.cut_x, multi_g.cut_y) * 100);
       //
-      cout << "atomic integral conv " << summary.atomic_integral_converter/1e20 << endl;
-      cout << "atomic avr xy conv " << summary.atomic_avr_xy_converter/1e20 << endl;
+      // cout << "atomic integral conv " << summary.atomic_integral_converter/1e20 << endl;
+      // cout << "atomic avr xy conv " << summary.atomic_avr_xy_converter/1e20 << endl;
     }
     cout << "Processing beam separation (" << z2[step] << ") ... " << flush;
     // average field when the first bunch is at -z2[step] and the second is at
@@ -751,7 +623,7 @@ int main(int argc, char** argv) {
       kick_transition_weighted[i_turn] = kick_const * trans_w;
       kick_average_transition_weighted[i_turn] = kick_average * trans_w;
     }
-    complex<double> z2_step = z2[step];;
+    complex<double> z2_step = z2[step];
     // prepare N_points_in_step threads to run in parallel
     vector<thread> threads(N_points_in_step);
     // store selected points in
@@ -763,14 +635,12 @@ int main(int argc, char** argv) {
     // v_points in memory.
     vector<complex<double> > v_points;
     int N_turns_stored = N_turns / select_turns;
-    if (output_points_bool) v_points.resize(N_points_in_step * N_turns_stored * 2);
+    if (output[POINTS].selected) v_points.resize(N_points_in_step * N_turns_stored * 2);
     mutex turn_loop_mutex;
     auto loop = [&rx, &ry, &w, &multi_g, z2_step, &E_field, &summary, &v_points,
 		 step, select_turns, zQx, zQy,
 		 &kick_transition_weighted, kick_average, kick_const, &kick_average_transition_weighted,
-		 N_turns, N_turns_stored, N_turns_in_phase,
-		 output_points_bool, output_integrals_per_circle_bool, output_centers_per_circle_bool,
-		 output_integrals_bool, output_centers_bool,
+		 N_turns, N_turns_stored, N_turns_in_phase, &output,
 		 kick_model, calculate_field_without_interpolation]
       (int i, double rnd1, double rnd2) {
 		  // For every (rx,ry) pair obtain X-X', Y-Y' 4-dimensional
@@ -779,7 +649,7 @@ int main(int argc, char** argv) {
 		   xZ = rx[i] * exp(2i * M_PI * rnd1),
 		   yZ = ry[i] * exp(2i * M_PI * rnd2);
 		 auto v_points_iter = v_points.begin();
-		 if (output_points_bool) v_points_iter += 2 * N_turns_stored * i;
+		 if (output[POINTS].selected) v_points_iter += 2 * N_turns_stored * i;
 		 //
 		 auto apply_kick = [zQx, zQy]
 		   (complex<double> kick, complex<double>& xZ, complex<double>& yZ) {
@@ -812,9 +682,7 @@ int main(int argc, char** argv) {
 		 //
 		 auto fill_summary_per_turn =
 		   [&w, &multi_g, &summary, i, z2_step,
-		    select_turns, output_centers_per_circle_bool,
-		    output_integrals_bool, output_centers_bool,
-		    output_points_bool]
+		    select_turns, &output]
 		   (int i_turn, complex<double> xZ, complex<double> yZ,
 		    vector<complex<double> >::iterator& v_points_iter, int phase)
 		   {
@@ -827,21 +695,21 @@ int main(int argc, char** argv) {
 		     double rho2 = multi_g.not_normalized_density2(real(xZ) - real(z2_step),
 								   real(yZ) - imag(z2_step));
 		     summary.integ_per_circle[phase][i] += rho2;
-		     if (output_centers_per_circle_bool) {
+		     if (output[CENTERS_PER_CIRCLE].selected) {
 		       summary.avr_z_per_circle[phase][i] += complex<double>(real(xZ), real(yZ));
 		     }
-		     if (output_integrals_bool) {
+		     if (output[INTEGRALS].selected) {
 		       summary.atomic_integ[i_turn] +=
 			 (long int)(rho2 * w[i] * summary.atomic_integral_converter);
 		     }
-		     if (output_centers_bool) {
+		     if (output[CENTERS].selected) {
 		       summary.atomic_avr_x[i_turn] +=
 			 (long int)(real(xZ) * w[i] * summary.atomic_avr_xy_converter);
 		       summary.atomic_avr_y[i_turn] +=
 			 (long int)(real(yZ) * w[i] * summary.atomic_avr_xy_converter);
 		     }
 		     //
-		     if (output_points_bool && (i_turn + 1) % select_turns == 0) {
+		     if (output[POINTS].selected && (i_turn + 1) % select_turns == 0) {
 		       // last i_turn = N_turn-1 is written, first i_turn=0 - not
 		       // (assuming N_turn is a multiple of select_runs)
 		       //	cout << "  Turn " << i_turn+1 << endl;
@@ -855,7 +723,7 @@ int main(int argc, char** argv) {
 		 // it. Taking the ratio to the initial integral (instead of the exact
 		 // integral) should cancel the bias at least partially and improve
 		 // precision
-		 for (int phase_turn=0; phase_turn < N_turns_in_phase[0]; ++phase_turn, ++i_turn) {
+		 for (int phase_turn=0; phase_turn<N_turns_in_phase[0]; ++phase_turn, ++i_turn) {
 		   complex<double> z1( real( xZ ), real( yZ ));
 		   // coordinate in a frame where the 2nd bunch center is at (0,0):
 		   xZ *= zQx; // kick = 0
@@ -911,14 +779,14 @@ int main(int argc, char** argv) {
     }
     for (int i = 0; i < N_points_in_step; ++i) threads[i].join();
     // 
-    if (output_points_bool) {
+    if (output[POINTS].selected) {
       for (int i = 0; i < N_points_in_step; ++i) {
 	int ind = 2 * N_turns_stored * i;
 	for (int i_turn = 0; i_turn < N_turns_stored; ++i_turn) {
-	  output_points << step << " "
-	  		<< i_turn << " "
-	  		<< i << " "
-	  		<< v_points[ind++] << " " << v_points[ind++] << '\n';
+	  output[POINTS].os << step << " "
+			    << i_turn << " "
+			    << i << " "
+			    << v_points[ind++] << " " << v_points[ind++] << '\n';
 	}
       }
     }
@@ -931,42 +799,42 @@ int main(int argc, char** argv) {
     //
     for_each(summary.integ.begin(),
     	     summary.integ.end(), [n = multi_g.density2_normalization](double& x) { x *= n; });
-    if (output_integrals_per_circle_bool) {
+    if (output[INTEGRALS_PER_CIRCLE].selected) {
       for (int phase=0; phase<N_phases; ++phase) {
 	for (size_t i = 0; i < summary.integ_per_circle[phase].size(); ++i) {
-	  output_integrals_per_circle << step << " "
+	  output[INTEGRALS_PER_CIRCLE].os << step << " "
+					  << z2_step << " "
+					  << phase << " "
+					  << i << " "
+					  << summary.integ_per_circle[phase][i] << '\n';
+	}
+      }
+    }
+    if (output[CENTERS_PER_CIRCLE].selected) {
+      for (int phase=0; phase<N_phases; ++phase) {
+	for (size_t i = 0; i < summary.integ_per_circle[phase].size(); ++i) {
+    	output[CENTERS_PER_CIRCLE].os << step << " "
 				      << z2_step << " "
 				      << phase << " "
 				      << i << " "
-				      << summary.integ_per_circle[phase][i] << '\n';
+				      << summary.avr_z_per_circle[phase][i] << '\n';
 	}
       }
     }
-    if (output_centers_per_circle_bool) {
-      for (int phase=0; phase<N_phases; ++phase) {
-	for (size_t i = 0; i < summary.integ_per_circle[phase].size(); ++i) {
-    	output_centers_per_circle << step << " "
-				  << z2_step << " "
-				  << phase << " "
-				  << i << " "
-				  << summary.avr_z_per_circle[phase][i] << '\n';
-	}
+    if (output[INTEGRALS].selected) {
+      for (int i_turn = 0; i_turn < N_turns; ++i_turn) {
+    	output[INTEGRALS].os << step << " "
+			     << z2_step << " "
+			     << i_turn << " "
+			     << summary.integ[i_turn] << '\n';
       }
     }
-    if (output_integrals_bool) {
+    if (output[CENTERS].selected) {
       for (int i_turn = 0; i_turn < N_turns; ++i_turn) {
-    	output_integrals << step << " "
-    			 << z2_step << " "
-    			 << i_turn << " "
-    			 << summary.integ[i_turn] << '\n';
-      }
-    }
-    if (output_centers_bool) {
-      for (int i_turn = 0; i_turn < N_turns; ++i_turn) {
-    	output_centers << step << " "
-    		       << z2_step << " "
-    		       << i_turn << " "
-    		       << summary.avr_z[i_turn] << "\n";
+    	output[CENTERS].os << step << " "
+			   << z2_step << " "
+			   << i_turn << " "
+			   << summary.avr_z[i_turn] << "\n";
       }
     }
     summary.int0_analytic = multi_g.overlap_integral(real(z2_step), imag(z2_step));
@@ -974,9 +842,8 @@ int main(int argc, char** argv) {
     //			      summary.integ.begin()+N_turns_no_bb, 0.) / double(N_turns_no_bb);
     summary.int0 = 0;
       for (int i=0; i<N_points_in_step; ++i) summary.int0 += summary.integ_per_circle[0][i] * w[i];
-    cout << "int0: " << summary.int0 << endl;
     summary.int0_to_analytic = summary.int0 / summary.int0_analytic;
-    if (output_integrals_bool) {
+    if (output[INTEGRALS].selected) {
       double sd_int0 = 0;
       for (auto i = summary.integ.begin(); i != summary.integ.begin() + N_turns_no_bb; ++i) {
 	double dx = *i - summary.int0;
@@ -1078,6 +945,5 @@ int main(int argc, char** argv) {
     ofstream config_out((output_dir + "/config.txt").c_str());
     config_out << c;
   }
-  cout << multi_g.density2_normalization / double(N_turns_in_phase[0]) <<endl;
   return(0);
 }
