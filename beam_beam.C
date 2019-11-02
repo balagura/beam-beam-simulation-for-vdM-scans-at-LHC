@@ -99,13 +99,13 @@ struct Mutli_XY_Gaussian_bunches : public Bunch_density_dependency {
 		     if (n_sig-1 == w->size()) {
 		       // complement last Gaussian weight so that sum of all == 1
 		       w->push_back(1 - accumulate(w->begin(), w->end(), 0.));
-		     } else if (n_sig != w->size()) {
-		       cerr << "N elements in " << weights_name << " and in corresponding sig are different\n";
-		       exit(1);
-		     } else {
+		     } else if (n_sig == w->size()) {
 		       // normalize
 		       double wsum = accumulate(w->begin(), w->end(), 0.);
-		       transform(w->begin(), w->end(), w->begin(), [wsum](double x) { return x/wsum; });
+		       for_each(w->begin(), w->end(), [wsum](double& x) { x /= wsum; });
+		     } else {
+		       cerr << "N elements in " << weights_name << " and in corresponding sig are different\n";
+		       exit(1);
 		     }
 		   } else {
 		     if (n_sig != 1) {
@@ -124,7 +124,7 @@ struct Mutli_XY_Gaussian_bunches : public Bunch_density_dependency {
     // with radii beyond n_sig_cut ("N.sigma.cut" in the configuration file)
     // are not simulated. 
     // The distribution of eg. X-X' radius is:
-    // 1/2 pi/sigx^2 * 2pi r * exp(-0.5 * (r/sig)^2) dr =
+    // 1/2 /pi / sigx^2 * 2pi r * exp(-0.5 * (r/sig)^2) dr =
     // 1/sig^2 * r * exp(-0.5 * (r/sig)^2) dr
     //
     // By integrating this expression one can find that not simulated part of
@@ -132,19 +132,19 @@ struct Mutli_XY_Gaussian_bunches : public Bunch_density_dependency {
     // 1 - (1 - exp(-n_sig_cut^2/2))^2, eg. for n_sig_cut = 5 it is 7.4e-6.
     //
     double n_sig_cut = c.defined("N.sigma.cut") ? c("N.sigma.cut") : 5;
-    // For both multi-Gaussian case, select [0, cut_x] range corresponding to
-    // [0, n_sig_cut * sigma] for a single Gaussian, such that it contains
-    // 1 - exp(-n_sig_cut^2 / 2) of all radii distributed as a sum of N X-X'
-    // 2D Gaussians.
+    // For multi-Gaussian case, select analogous [0, cut_x] range
+    // corresponding to [0, n_sig_cut * sigma] for a single Gaussian, such
+    // that it contains 1 - exp(-n_sig_cut^2 / 2) of all radii distributed as
+    // a sum of N X-X' 2D Gaussians.
     // 
     // Ie. for N Gaussians we require:
     // sum_{i=1}^N integral_0^cut_x (w[i] / sig[i]^2 * r * exp(-0.5 * (r/sig[i])^2) dr =
-    // sum_{i=1}^N w[i] * (1 - exp(-0.5 * (R / sig[i])^2)) = 1 - exp(-n_sig_cut^2 / 2)
+    // sum_{i=1}^N w[i] * (1 - exp(-0.5 * (cut_x / sig[i])^2)) = 1 - exp(-n_sig_cut^2 / 2)
     // or, since sum_{i=1}^N w[i] = 1:
     //
-    // sum_{i=1}^N w[i] * exp(-0.5 * (R / sig[i])^2) = exp(-n_sig_cut^2 / 2).
+    // sum_{i=1}^N w[i] * exp(-0.5 * (cut_x / sig[i])^2) = exp(-n_sig_cut^2 / 2).
     //
-    // Solve this equation numerically (and same for y)
+    // Solve this equation numerically (and same for y):
     //
     auto g = [](double chi) { return exp(-0.5 * chi * chi); };
     auto root = [&g] (const vector<double>& sig, const vector<double>& w, double n_sig_cut) {
@@ -159,18 +159,15 @@ struct Mutli_XY_Gaussian_bunches : public Bunch_density_dependency {
 		auto sig_range = minmax_element(sig.begin(), sig.end());
 		double
 		  low  = *sig_range.first  * n_sig_cut,
-		  high = *sig_range.second * n_sig_cut, middle;
+		  middle,
+		  high = *sig_range.second * n_sig_cut;
 		// f(r) is monotonically decreasing, so f(low)>=0, f(high)<=0,
 		// find the root f() = 0 by the bisection method:
-		cout << sig[0] << " " << sig[1] << " " << w[0] << " " << w[1] << endl;
 		while (true) {
 		  middle = (low + high) / 2;
 		  double f_middle = f(middle);
-		  double tmp = 0;
-		  for (size_t i = 0; i<sig.size(); ++i) tmp += w[i] / sig[i] / sig[i];
-		  cout << "l,m,h,f(m): " << low << " " << middle << " " << high << " "
-		       << f(low) << " " << f_middle << " " << f(high)
-		       << " " << sqrt(n_sig_cut*n_sig_cut / tmp) << endl;
+		  // cout << "l,m,h,f(l,m,h): " << low << " " << middle << " " << high << " "
+		  //      << f(low) << " " << f_middle << " " << f(high) << endl;
 		  if (abs(f_middle) < 1e-8) break; // require the integral outside [0, cut_x]
 		  // to be equal to the desired value (exp(-nsig_cut^2/2)) within +/-(1e-8)
 		  if (f_middle < 0) high = middle; else low = middle;
@@ -219,24 +216,26 @@ struct Mutli_XY_Gaussian_bunches : public Bunch_density_dependency {
 			 }
 			 return o;
 		       };
-			
-    // In case of double Gaussian shape of bunch 2: rho2(x,y) = rho2(x) * rho2(y), where
-    //  rho2(x) = wx /sqrt(2 pi)/sig2x * exp(.1.) + (1 - wx) /sqrt(2 pi)/sig2x_2g * exp(.2.)
-    // and wx = c["b2.1g.weight.x"] and same for y.
-    // To minimize multiplications, rho2(x,y) is equivalently written as
-    //  rho2(x,y) = bunch_2_prob_const *
-    //                (exp(.1.) + b2_exp_weight_x_g2 * exp(.2.)) *
-    //                (exp(.1.) + b2_exp_weight_y_g2 * exp(.2.))
+    // Bunch 2 density: rho2(x,y) = rho2(x) * rho2(y), where
+    //  rho2(x) = sum_i w2x[i] /sqrt(2 pi)/sig2x[i] * exp(-0.5*(x/sig2x[i])^2)
+    // and same for y.
+    // To save two multiplications in the innermost loop, rho2(x,y) is
+    //  equivalently written as rho2(x,y) = density2_normalization *
+    //  not_normalized_density2(x,y),
     // where
-    //    bunch_2_prob_const = wx * wy / (2 pi) / sig2x / sig2y,
-    //    b2_exp_weight_x_g2 = (1 - wx) / wx * (sig2x / sig2x_2g),
-    //    b2_exp_weight_y_g2 = (1 - wy) / wy * (sig2y / sig2y_2g)
+    //   density2_normalization = 0.5*w2x[0]*w2y[0] /M_PI /sig2x[0]/sig2y[0],
+    // ie. it corresponds to the normalization of the 0-th term, while
+    // not_normalized_density2(x,y) = prob_x(x) * prob_y(y),
     //
-    // Probability density of the second bunch = bunch_2_prob_const * not_normalized_density(),
-    // multiplication by bunch_2_prob_const is moved out of the mostinner loop
+    //   prob_x(x) = exp(-0.5*(x/sig2x[0])^2) +
+    //          sum_{i=1,...} (w[i] / sig[i] * sig[0] / w[0]) * exp(-0.5*(x/sig2x[i])^2),
+    // ie. all terms are divided by the 0-th term normalization (and same for y).
     //
-    // TODO: change doc for multi-G
-    vector<double> exp_w2x(w2x.size()-1), exp_w2y(w2y.size()-1);
+    // Multiplication by density2_normalization is moved out of the innermost
+    // loop
+    //
+    vector<double> exp_w2x(w2x.size()-1), exp_w2y(w2y.size()-1); // w[i] / sig[i] * sig[0] / w[0],
+    // ie. normalization of i=1,2,... / normalization of i=0
     auto fill_exp_w = [] (const vector<double>& sig, const vector<double>& w, vector<double>* exp_w) {
 			for (size_t i=0; i<exp_w->size(); ++i) {
 			  (*exp_w)[i] = w[i+1] / sig[i+1] * sig[0] / w[0];
@@ -261,26 +260,28 @@ struct Mutli_XY_Gaussian_bunches : public Bunch_density_dependency {
 								    vdm_sigx, vdm_sigy);
 	};
     } else {
-      not_normalized_density2 = [sig2x, sig2y,
-				 exp_w2x, exp_w2y, &g] (double x, double y) {
-				 auto prob = [&g] (double x, const vector<double>& sig, const vector<double>& exp_w) {
-					       double prob = g(x / sig[0]);
-					       for (size_t i=1; i<sig.size(); ++i) prob += exp_w[i-1] * g(x / sig[i]);
-					       return prob;
-					     };
-				 return prob(x, sig2x, exp_w2x) * prob(y, sig2y, exp_w2y);
-			       };
+      not_normalized_density2 =
+	[sig2x, sig2y,
+	 exp_w2x, exp_w2y, &g] (double x, double y)
+	{
+	  auto prob = [&g] (double x, const vector<double>& sig, const vector<double>& exp_w) {
+			double prob = g(x / sig[0]);
+			for (size_t i=1; i<sig.size(); ++i) prob += exp_w[i-1] * g(x / sig[i]);
+			return prob;
+		      };
+	  return prob(x, sig2x, exp_w2x) * prob(y, sig2y, exp_w2y);
+	};
       field2 = [sig2x, sig2y,
-	       w2x, w2y] (double x, double y) {
-		complex<double> E = 0;
-		for (size_t ix=0; ix<sig2x.size(); ++ix) {
-		  for (size_t iy=0; iy<sig2y.size(); ++iy) {
-		    E += w2x[ix] * w2y[iy] *
-		      E_from_unit_charge_2d_gaussian_times_2pi_epsilon_0(x, y, sig2x[ix], sig2y[iy]);
-		  }
-		}
-		return E;
-	      };
+		w2x, w2y] (double x, double y) {
+		 complex<double> E = 0;
+		 for (size_t ix=0; ix<sig2x.size(); ++ix) {
+		   for (size_t iy=0; iy<sig2y.size(); ++iy) {
+		     E += w2x[ix] * w2y[iy] *
+		       E_from_unit_charge_2d_gaussian_times_2pi_epsilon_0(x, y, sig2x[ix], sig2y[iy]);
+		   }
+		 }
+		 return E;
+	       };
       field2_averaged_over_bunch_1 =
 	[sig1x_sq, sig1y_sq,
 	 sig2x_sq, sig2y_sq,
