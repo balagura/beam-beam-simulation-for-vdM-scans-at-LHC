@@ -121,7 +121,7 @@ select.one.turn.out.of = 1000
 
 # Seed for the random number generator. If not given, the current time will be
 # used as a seed.
-# seed = 12121212121
+seed = 12121212121
 
 # For the debugging purposes one can redefine the kick formula by choosing
 # the "kick.model" parameter below from the list:
