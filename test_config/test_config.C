@@ -26,15 +26,38 @@ int main(int agc, char** argv) {
   cout << "c.vl(\"vN\") = " << c.vl("vN") << endl;
   cout << "c.vd(\"vX\") = " << c.vd("vX") << endl;
   cout << "c.vs(\"vS\") = " << c.vs("vS") << endl;
-  cout << ">>> Access zToDouble as double: " << c.d("zToDouble") << endl;
-  cout << ">>> Access vZToDouble as a vector of doubles: "
-       << c.vd("vZToDouble") << endl;
-  cout << ">>> Access iToVDouble as a vector of doubles: "
-       << c.vd("iToVDouble") << endl;
-  cout << ">>> Access dToVDouble as a vector of doubles: "
-       << c.vd("dToVDouble") << endl;
-  cout << ">>> Access iToVInt as a vector of doubles: "
-       << c.vl("iToVInt") << endl;
+
+  cout << ">>> Check conversions\n";
+  
+  cout << ">>> long int -> double "
+       << c.l("lToD") << " -> " << c.d("lToD") << endl;
+  cout << ">>> long int -> string "
+       << c.l("lToS") << " -> " << c.s("lToS") << endl;
+  cout << ">>> long int -> vector<long int> "
+       << c.l("lToVL") << " -> " << c.vl("lToVL") << endl;
+  cout << ">>> long int -> vector<double> "
+       << c.l("lToVD") << " -> " << c.vd("lToVD") << endl;
+  cout << ">>> long int -> vector<string> "
+       << c.l("lToVS") << " -> " << c.vs("lToVS") << endl;
+
+  cout << ">>> double -> vector<double> "
+       << c.d("dToVD") << " -> " << c.vd("dToVD") << endl;
+  cout << ">>> double -> string "
+       << c.d("dToS") << " -> " << c.s("dToS") << endl;
+  cout << ">>> double -> vector<string> "
+       << c.d("dToVS") << " -> " << c.vs("dToVS") << endl;
+
+  cout << ">>> string -> vector<string> "
+       << c.s("sToVS") << " -> " << c.vs("sToVS") << endl;
+
+  cout << ">>> vector<long int> -> vector<double> "
+       << c.vl("vlToVD") << " -> " << c.vd("vlToVD") << endl;
+  cout << ">>> vector<long int> -> vector<string> "
+       << c.vl("vlToVS") << " -> " << c.vs("vlToVS") << endl;
+
+  cout << ">>> vector<double> -> vector<string> "
+       << c.vd("vdToVS") << " -> " << c.vs("vdToVS") << endl;
+
   cout << ">>> Final config content\n";
   cout << c;
   return 0;

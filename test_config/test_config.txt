@@ -24,19 +24,28 @@ vX = 1 2 3 4 5.
 # Vector of strings
 vS ==1 2 3 4 5
 
-# vZToDouble will be recognized as a vector of integers, but after the first
-# reference as a vector of doubles it will be changed to doubles
-vZToDouble = 1 2 3 4 5
+# Conversions of long int
+# iToD will be recognized as an integer, but after the first reference
+# as a double it will be changed to that. Analogously for other conversions:
+# long int -> double, string, vector<long int>, vector<double>, vector<string>
+lToD = 1
+lToS = 1
+lToVL = 1
+lToVD = 1
+lToVS = 1
 
-# iToVDouble will be recognized as an integer, but after the first
-# reference as a vector of doubles it will be changed to that
-iToVDouble = 1
+# double -> string, vector<long int>, vector<double>, vector<string>
+dToS = 1.23
+dToVD = 1.23
+dToVS = 1.23
 
-# dToVDouble will be recognized as a double, but after the first
-# reference as a vector of doubles it will be changed to that
-dToVDouble = 1.1
+# string -> vector<string>
+sToVS = aaa
 
-# iToVInt will be recognized as an integer, but after the first
-# reference as a vector of ints it will be changed to that
-iToVInt = 1
+# vector<int> -> vector<double>, vector<string>
+vlToVD = 1 2 3
+vlToVS = 1 2 3
+
+# vector<double> -> vector<string>
+vdToVS = 1.23 4.56 7.89
 

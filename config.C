@@ -2,83 +2,168 @@
 
 #include <config.hh>
 #include <sstream>
+#include <algorithm>
 #include <cstdlib>
 #include <cstdio>
 
 using namespace std;
 
-long int Config::l(const string& name) const {
-  return Config::find_or_fail(ml, name)->second;
+/*
+  There are six types of configurable data:
+  
+     vector<long int>  vector<double>  vector<string>
+            long int          double          string
+	    
+  In the configuration file there might be a line
+  key = 1
+  
+  How to interpret it, what can be a type corresponding to "key"? The data "1"
+  might be long, double, string, or even a vector of those, in total 6
+  possibilities. In the beginning, the "minimal" possible type is assigned:
+  long int.  If in the program the user refers to "1" later as
+  config.d("key"), ie. as a double, the "key" will be moved from long int's to
+  double's. If then config.vd("key") appears, it will be moved further to
+  vector<double>'s. The conversions can be only in one direction, ie. to the
+  right and up, not to the left or down. If "key" is "upgraded" to
+  vector<double>, it can not be downgraded back to long int.
+
+  To allow such up/right-conversions one needs C++ type manipulations inside
+  the 3x2 matrix of types above. The idea is simple, but expressing it in C++
+  is a pain due to a lack of effective meta-programming tools in the language.
+
+  The following performs
+  
+  1) right-conversions with Right-converter<From, To> template-specialized
+  class and with right_convert<From, To> helper function,
+  
+  2) up+right conversions with function-overloaded convert(From from, To)
+  where To type is sent as an argument just for overloading but To's object is
+  empty. In this way a compiler knows that To's object is not needed and can
+  drop this dependency.
+*/
+//
+// right conversion, includes identity conversion From=To needed for
+// up-conversion From -> vector<From>
+//
+template <class To> struct Right_Converter {
+  template <class From> To operator()(From a) { return a; }
+};
+template<> struct Right_Converter<string> {
+  template <class From> string operator()(From a) { return to_string(a); }
+  string operator()(const string& a) { return a; }
+};
+template<class From, class To> To right_convert(From a) { return Right_Converter<To>()(a); }
+//
+// The same can be done explicitly (but then it is more difficult to add
+// further types):
+//
+//long int right_converter(long int      a, to_type<long int>) { return a; }
+//double   right_converter(long int      a, to_type<double>  ) { return a; }
+//string   right_converter(long int      a, to_type<string>  ) { return to_string(a); }
+//double   right_converter(double        a, to_type<double>  ) { return a; }
+//string   right_converter(double        a, to_type<string>  ) { return to_string(a); }
+//string   right_converter(const string& a, to_type<string>  ) { return a; }
+//
+// up+right conversion
+//
+template<class From, class To> To convert(From from, To) {
+  return right_convert<From, To>(from);
 }
-double Config::d(const string& name) {
-  // search first in doubles and then also in integers
-  map<string, double>::const_iterator i = md.find(name);
-  if (i != md.end()) {
-    return i->second;
-  } else {
-    map<string, long int>::iterator j = Config::find_or_fail(ml, name);
-    // if found in integers: move it from integers to doubles and return
-    i = md.insert(make_pair(name, double(j->second))).first;
-    ml.erase(j);
-    return i->second;
-  }
+template<class From, class To> vector<To> convert(From from, vector<To>) {
+  return vector<To>(1, right_convert<From, To>(from));
 }
-const string& Config::s(const string& name) const {
-  return Config::find_or_fail(ms, name)->second;
+template<class From, class To> vector<To> convert(const vector<From>& from, vector<To>) {
+  vector<To> v(from.size());
+  transform(from.begin(), from.end(), v.begin(),
+	    [](auto x) { return right_convert<From, To>(x); });
+  return v;
+}
+//
+// move data from map<string, From> to map<string, To>
+//
+template<class From, class To>
+typename map<string, To>::iterator get_from(map<string, From>& from,
+					    map<string, To>& to,
+					    const string& name) {
+    auto j = from.find(name);
+    if (j == from.end()) return to.end();
+    auto i = to.insert(make_pair(name, convert(j->second, To()))).first;
+    from.erase(j);
+    return i;
+}
+//
+// use get_from(from, to, name) explicitly
+//
+const vector<string>& Config::vs(const string& name) {
+  // the longest search: first in vectors, then scalars of strings, then in
+  // vectors and scalars of doubles and then in vectors+scalaras of integers
+  auto& m = mvs;
+  auto i = m.find(name);
+  if (i == m.end()) i = get_from(ms,  m, name);
+  if (i == m.end()) i = get_from(mvd, m, name);
+  if (i == m.end()) i = get_from(md,  m, name);
+  if (i == m.end()) i = get_from(mvl, m, name);
+  if (i == m.end()) i = get_from(ml,  m, name);
+  if (i == m.end()) {
+    cerr << "Configuration parameter " << name << " is not defined\n";
+    exit(EXIT_FAILURE);
+  } else return i->second;
+}
+const vector<double>& Config::vd(const string& name) {
+  auto& m = mvd;
+  auto i = m.find(name);
+  if (i == m.end()) i = get_from(md,  m, name);
+  if (i == m.end()) i = get_from(mvl, m, name);
+  if (i == m.end()) i = get_from(ml,  m, name);
+  if (i == m.end()) {
+    cerr << "Configuration parameter " << name << " is not defined\n";
+    exit(EXIT_FAILURE);
+  } else return i->second;
 }
 const vector<long int>& Config::vl(const string& name) {
-  // search first in vectors and then in "scalars" of integers
-  map<string, vector<long int> >::const_iterator i = mvl.find(name);
-  if (i != mvl.end()) {
-	return i->second;
-  } else {
-    map<string, long int>::iterator j = Config::find_or_fail(ml, name);
-    i = mvl.insert(make_pair(name, vector<long int>(1, j->second))).first;
-    ml.erase(j);
-    return i->second;
-  }
+  auto& m = mvl;
+  auto i = m.find(name);
+  if (i == m.end()) i = get_from(ml, m, name);
+  if (i == m.end()) {
+    cerr << "Configuration parameter " << name << " is not defined\n";
+    exit(EXIT_FAILURE);
+  } else return i->second;
 }
-const vector<double>&   Config::vd(const string& name) {
-  // search first in vectors+scalars of doubles and also in integers
-  map<string, vector<double> >::const_iterator i = mvd.find(name);
-  if (i != mvd.end()) {
-    return i->second;
-  } else {
-    map<string, vector<long int> >::iterator j = mvl.find(name);
-    if (j != mvl.end()) {
-      // if found in integers: move it from integers to doubles and return
-      vector<double> vd(j->second.size());
-      copy(j->second.begin(), j->second.end(), vd.begin());
-      i = mvd.insert(make_pair(name, vd)).first;
-      mvl.erase(j);
-      return i->second;
-    } else {
-      map<string, double>::iterator j1 = md.find(name);
-      if (j1 != md.end()) {
-	// if found in double scalars: move it to vector of doubles and return
-	i = mvd.insert(make_pair(name, vector<double>(1, j1->second))).first;
-	md.erase(j1);
-	return i->second;
-      } else {
-	map<string, long int>::iterator j2 = Config::find_or_fail(ml, name);
-	i = mvd.insert(make_pair(name, vector<double>(1, j2->second))).first;
-	ml.erase(j2);
-	return i->second;
-      }
-    }
-  }
+const string& Config::s(const string& name) {
+  auto& m = ms;
+  auto i = m.find(name);
+  if (i == m.end()) i = get_from(md, m, name);
+  if (i == m.end()) i = get_from(ml, m, name);
+  if (i == m.end()) {
+    cerr << "Configuration parameter " << name << " is not defined\n";
+    exit(EXIT_FAILURE);
+  } else return i->second;
 }
-const vector<string>& Config::vs(const string& name) const {
-  return Config::find_or_fail(mvs, name)->second;
+double Config::d(const string& name) {
+  auto& m = md;
+  auto i = m.find(name);
+  if (i == m.end()) i = get_from(ml, m, name);
+  if (i == m.end()) {
+    cerr << "Configuration parameter " << name << " is not defined\n";
+    exit(EXIT_FAILURE);
+  } else return i->second;
+}
+long int Config::l(const string& name) const {
+  auto& m = ml;
+  auto i = m.find(name);
+  if (i == m.end()) {
+    cerr << "Configuration parameter " << name << " is not defined\n";
+    exit(EXIT_FAILURE);
+  } else return i->second;
 }
 bool Config::defined(const std::string& name) {
-  if (ml.find(name) != ml.end()) return true;
-  if (md.find(name) != md.end()) return true;
-  if (ms.find(name) != ms.end()) return true;
-  if (mvl.find(name) != mvl.end()) return true;
-  if (mvd.find(name) != mvd.end()) return true;
-  if (mvs.find(name) != mvs.end()) return true;
-  return false;
+  return
+    ml .find(name) != ml.end()  ||
+    md .find(name) != md.end()  ||
+    ms .find(name) != ms.end()  ||
+    mvl.find(name) != mvl.end() ||
+    mvd.find(name) != mvd.end() ||
+    mvs.find(name) != mvs.end();
 }
 
 void Config::read(istream& is) {
@@ -106,6 +191,7 @@ void Config::read(istream& is) {
       // just ignore it
       return;
     }      
+    vkeys.push_back(key);
     char* rest;
     vector<long int> ints(items.size());
     // try to convert all items to long integers, if at least one failed - to doubles
@@ -141,25 +227,6 @@ void Config::read(istream& is) {
     }
   }
 }
-
-template<class T> typename map<string, T>::const_iterator
-Config::find_or_fail(const map<string, T>& m, const string& name) {
-  typename map<string, T>::const_iterator it = m.find(name);
-  if (it == m.end()) {
-    cerr << "Configuration parameter " << name << " is not defined\n";
-    exit(EXIT_FAILURE);
-  } else
-    return it;
-}    
-template<class T> typename map<string, T>::iterator
-Config::find_or_fail(map<string, T>& m, const string& name) {
-  typename map<string, T>::iterator it = m.find(name);
-  if (it == m.end()) {
-    cerr << "Configuration parameter " << name << " is not defined\n";
-    exit(EXIT_FAILURE);
-  } else
-    return it;
-}    
 template<class T> void Config::print(ostream& os, const map<string, T>& m) const {
   for (typename map<string, T>::const_iterator i = m.begin(); i!=m.end(); ++i)
     os << i->first << " = " << i->second << endl;

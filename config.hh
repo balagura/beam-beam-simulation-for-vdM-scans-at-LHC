@@ -20,34 +20,42 @@
    c.d("key1")
    c.s("key1")
 
-   respectively, for a single X. " .l/d/s" stand for the long integer, double
-   and string types. Alternatively and equivalently, long int and double can be
-   accessed using shorter variants
+   respectively. "l/d/s" function names stand for the long integer, double and
+   string types, respectively. Alternatively and equivalently, long int and
+   double can be accessed using shorter variants 
    c("key1")
    c["key1"]
-
-   Note that the circular () and square [] brackets are used for the long int
-   and the double, respectively.
-   In case of multiple X1 X2 X3 ...
+   
+   These are C++ operators () and [] and they are equaivalent to l() and d()
+   member functions, respectively.
+   
+   In case of multiple X1 X2 X3 ... the "vector" versions with "v" prefix
+   should be used:
    c.vl("key2")
    c.vd("key2")
    c.vs("key2")
 
-   give std::vector of the corresponding type, ".v" stands for the vector.
+   They return std::vector of the corresponding type (long int, double or
+   string, respectively).
 
-   If one of the double-type parameters appears as a long integer in the
-   configuration file, eg.
-   key = 100
-
-   it is initially recognized as an integer, but when accessed as a double:
-   c.d("key")
-
-   its type automtically changes to double, and it can not be accessed
-   as an integer anymore. The same rule holds for a conversion of a vector of
-   integers to a vector of doubles, and also for a conversion of single values
-   to vectors: an integer to a vector of integers or doubles, and a double to a
-   vector of doubles.
+   Therefore, there are six types of configurable data:
    
+     vector<long int>  vector<double>  vector<string>
+            long int          double          string
+	    
+   In the configuration file there might be a line
+   key = 1
+  
+   How to interpret it, what can be a type corresponding to "key"? The data
+   "1" might be long, double, string, or even a vector of those, in total 6
+   possibilities. In the beginning, the "minimal" possible type is assigned:
+   long int.  If in the program the user refers to "1" later as c.d("key"),
+   ie. as a double, the "key" will be moved from the container of long int's
+   to double's. If then config.vd("key") appears, it will be moved further to
+   vector<double>'s. In the table above the conversions can only be performed
+   in the directions to the right and from the bottom row to the
+   top. Conversions to the left or down are forbidden, eg. if "key" is
+   "upgraded" to vector<double>, it can not be downgraded back to long int.
 */
 // Author V. Balagura, balagura@cern.ch (07.01.2019)
 
@@ -64,11 +72,13 @@ struct Config {
   long int  operator()(const std::string& name) const { return l(name); };
   double             d(const std::string& name);
   double    operator[](const std::string& name)       { return d(name); }
-  const std::string& s(const std::string& name) const;
+  const std::string& s(const std::string& name);
   const std::vector<long int>&      vl(const std::string& name);
   const std::vector<double>&        vd(const std::string& name);
-  const std::vector<std::string>&   vs(const std::string& name) const;
+  const std::vector<std::string>&   vs(const std::string& name);
   bool defined(const std::string& name);
+  // returns vector of all keys to which value(s) have been assigned:
+  const std::vector<std::string>& keys() const { return vkeys; }
   friend std::ostream& operator<<(std::ostream& os, const Config& c);
 private:
   template<class T> static typename std::map<std::string, T>::const_iterator
@@ -85,6 +95,7 @@ private:
   std::map<std::string, std::vector<long int> >      mvl;
   std::map<std::string, std::vector<double> >        mvd;
   std::map<std::string, std::vector<std::string> >   mvs;
+  std::vector<std::string> vkeys;
 };
 
 #endif
