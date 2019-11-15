@@ -6,7 +6,7 @@
 #include <string>
 #include <complex>
 #include <iostream>
-#include <bilinear_interpolator.hh>
+#include <interpolators.hh>
 
 using namespace std;
 
@@ -73,8 +73,8 @@ struct Mutli_XY_Gaussian_bunches {
   // calculations. The interpolator for one bunch is reused for all identical
   // bunches at other interaction points.
   //
-  void reset_bilinear_interpolators(int n_density_cells,
-				    int n_field_cells);
+  void reset_interpolators(int n_density_cells,
+			   int n_field_cells);
   //
   // Functions required in the simulation. They encapsulate the phase advances
   // and everything what dependends on the bunch densities, namely:
@@ -104,10 +104,9 @@ struct Mutli_XY_Gaussian_bunches {
   // by the kicker bunch placed at (0,0) assuming that its total charge is
   // equal to one.
   //
-  // if "reset_bilinear_interpolators()" was not called, "field" function
-  // below calculates the field directly, otherwise it uses bilinear
-  // interpolation which is much faster for elliptical or multi-Gaussian
-  // bunches
+  // if "reset_interpolators()" was not called, "field" function below
+  // calculates the field directly, otherwise it uses bilinear interpolation
+  // which is much faster for elliptical or multi-Gaussian bunches
   complex<double> field(double x, double y, int ip) const;
   //
   // 3) phase advances deltaQ, one per interaction point and per X-/Y-axis,
@@ -130,13 +129,22 @@ struct Mutli_XY_Gaussian_bunches {
   //
   // 7) Estimates interpolation accuracy for density and field:
   //
-  // for every interaction point, returns the maximal (first in pair) and
-  // average (second) absolute mismatches between the exact and interpolated
-  // values at "n_random_points" uniformly distributed in the interpolation
-  // grid, normalized by the maximal absolute value
+  // for every interaction point "ip" and the coordinate "coor" (0 or 1 for X
+  // or Y, respectively), returns the maximal (first in pair) and average
+  // (second) absolute mismatches between the exact and interpolated values at
+  // "n_random_points" uniformly distributed in the interpolation grid,
+  // normalized by the maximal absolute value. In the returned structure the
+  // first index is "ip", the second is "coor": [ip][coor]
   //
-  vector<pair<double, double> >
+  vector<array<pair<double, double>, 2> >
   max_and_average_interpolation_mismatches_relative_to_max_density(int n_random_points);
+  //
+  // The same maximal (first in pair) and average (second) absolute mismatches
+  // between the exact and interpolated two-dimensional electric E-field at
+  // "n_random_points" uniformly distributed in the 2D interpolation grid,
+  // normalized by the maximal absolute |E|-value. The returned structure has
+  // only one index "ip": [ip]
+  //
   vector<pair<double, double> >
   max_and_average_interpolation_mismatches_relative_to_max_field(int n_random_points);
   //
@@ -178,6 +186,7 @@ protected:
   };
 
   struct Kicker_MultiG : public MultiG_SigSq {
+    Kicker_MultiG() : li_density(nullptr) {}
     string reset(const vector<double>& sigmas, const vector<double>& weights,
 		 double phase_advance);
     void reset_positions(const vector<double>& positions);
@@ -191,24 +200,32 @@ protected:
     // exp_w[i] is the normalization part w[i] / sqrt(2 pi) / sig[i]:
     //
     vector<double> exp_w;
+    const Linear_interpolator *li_density;
   };
 
   struct Kicker_MultiG_XY : public array<Kicker_MultiG, 2> {
-    Kicker_MultiG_XY() : bi_density(nullptr), bi_field(nullptr) {}
-    double          density(double x, double y) const;
+    Kicker_MultiG_XY() : bi_field(nullptr) {}
     complex<double> field  (double x, double y) const;
-    const Bilinear_interpolator<double> *bi_density;
-    const Bilinear_interpolator<complex<double> > *bi_field;
+    const Bilinear_interpolator *bi_field;
   };
 
   vector<Kicker_MultiG_XY> kicker;
   array<Kicked_MultiG, 2> kicked;
-  struct BI_with_ips {
-    Bilinear_interpolator<double> density;
-    Bilinear_interpolator<complex<double> > field;
+  // interpolators
+  struct LI {
+    Linear_interpolator density;
+    struct Ip_Coor {
+      int ip, coor;
+    };
+    vector<Ip_Coor> ip_coor;
+  };
+  vector<LI> lis;
+
+  struct BI {
+    Bilinear_interpolator field;
     vector<int> ips;
   };
-  vector<BI_with_ips> bis;
+  vector<BI> bis;
 };
 
 #endif

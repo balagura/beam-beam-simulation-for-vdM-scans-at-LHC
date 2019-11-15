@@ -203,71 +203,105 @@ bool operator<(const Mutli_XY_Gaussian_bunches::MultiG& a, const Mutli_XY_Gaussi
   return a.sig < b.sig || (a.sig == b.sig && a.w < b.w);
   // vectors and arrays are compared by default lexicographically
 }
-void Mutli_XY_Gaussian_bunches::reset_bilinear_interpolators(int n_density_cells,
-							     int n_field_cells) {
-  if (n_density_cells <= 0 && n_field_cells <= 0) return;
-  // group identical bunches into map
-  map<array<MultiG, 2>, vector<int> > m; // m[(MultiG_X, MultiG_Y)] = vector of kicker ips
-  for (int ip = 0; ip < int(kicker.size()); ++ip) {
-    const auto& k = kicker[ip];
-    array<MultiG, 2> mg_XY;
-    for (int coor=0; coor<2; ++coor) mg_XY[coor] = k[coor];
-    m[mg_XY].push_back(ip);
-  }
-  bis.clear(); // in case it was already initialized
-  // loop over groups of identical bunches: find the range of the beam
-  // movements at IPs where bunches are identical and define bilinear
-  // interpolator in a wide enough grid
-  bis.resize(m.size()); // create one per group
-  int i_bi = 0;
-  for (const auto& p: m) {
-    array<pair<double, double>, 2> range; // [0/1 for x/y].first/second = min/max
-    // initialize min by maximal double and vice versa
-    range[1] = range[0] = make_pair(numeric_limits<double>::max(), -numeric_limits<double>::max());
-    for (int ip: p.second) { // ip = kicker index
-      Kicker_MultiG_XY& k = kicker[ip];
+void Mutli_XY_Gaussian_bunches::reset_interpolators(int n_density_cells,
+						    int n_field_cells) {
+  if (n_density_cells > 0) {
+    // group identical X or Y kicker bunch ditributions into a map
+    map<MultiG, vector<LI::Ip_Coor> > m;
+    // m[MultiG_X + Y] = vector of kicker (ip, coor)
+    for (int ip = 0; ip < int(kicker.size()); ++ip) {
       for (int coor=0; coor<2; ++coor) {
- 	auto r = minmax_element(k[coor].position.begin(), k[coor].position.end());
-	// Positions are specified in the frame where the kicked bunch is at
-	// (0,0), while the field map - with the kicker at (0,0). So, for the
-	// field map the positions should be subtracted and min/max - swapped:
-	range[coor].first  = min(-(*r.second), range[coor].first);
-	range[coor].second = max(-(*r.first ), range[coor].second);
+	const MultiG& mg_XY = kicker[ip][coor];
+	LI::Ip_Coor i; i.ip = ip; i.coor = coor;
+	m[mg_XY].push_back(i);
       }
     }
-    for (int coor=0; coor<2; ++coor) {
-      range[coor].first  -= 1.1 * kicked[coor].cut;
-      range[coor].second += 1.1 * kicked[coor].cut;
-      // 10% margin (1.1) since beam-beam can increase the radius
-    }
-    if (n_density_cells > 0) {
-      auto& bi = bis[i_bi].density;
-      bi.create(range[0].first, range[0].second,
-		range[1].first, range[1].second,
+    lis.clear(); // in case it was already initialized
+    // loop over groups of identical X+Y bunch distributions: find the range
+    // of the kicker positions inside the group and choose wide enough grid
+    // for a linear interpolator
+    lis.resize(m.size()); // create one per group
+    int i_li = 0;
+    for (const auto& p: m) {
+      pair<double, double> range = make_pair(numeric_limits<double>::max(), -numeric_limits<double>::max());
+      // first/second = min/max, initialize min by maximal double and vice versa
+      for (auto ip_coor: p.second) {
+	int ip = ip_coor.ip, coor = ip_coor.coor;
+	Kicker_MultiG& k = kicker[ip][coor];
+	auto r = minmax_element(k.position.begin(), k.position.end());
+	// Positions are specified in the frame where the kicked bunch is at
+	// (0,0), while the density map - with the kicker at (0,0). So, for the
+	// density map the positions should be subtracted and min/max - swapped.
+	// In addition, add +/-max simulated radius kicked[coor].cut:
+	range.first  = min(-(*r.second) - 1.1 * kicked[coor].cut, range.first);
+	range.second = max(-(*r.first ) + 1.1 * kicked[coor].cut, range.second);
+	// 10% margin (1.1) since beam-beam can increase the radius
+      }
+      auto& li = lis[i_li].density;
+      auto ip_coor0 = p.second[0]; // take first density in the group, others are identical
+      int ip0 = ip_coor0.ip, coor0 = ip_coor0.coor;
+      li.create(range.first, range.second,
 		n_density_cells,
 		// note, k in lambda is passed by reference, to avoid
-		// capturing the copy of the kicker. So, the kicker
+		// capturing the copy of kicker[ip0][coor0]. So, the kicker
 		// should not be reallocated in memory afterwards.
-		[&k = kicker[p.second[0]]](double x, double y) { return k.density(x, y); });
-      // Other option using binding and placeholders (for a member function the
-      // first "bind" arg is *this, here it is again fixed to kicker[p.second[0]]):
-      //			 bind(&Kicker_MultiG_XY::density,
-      //			      kicker[p.second[0]],
-      //			      placeholders::_1, placeholders::_2));
-      // 
-      // store the pointers to the created bilinear interpolator in the kickers
-      for (int ip: p.second) kicker[ip].bi_density = &bi;
+		[&k = kicker[ip0][coor0]](double x) { return k.density(x); });
+      // store the pointers to the created linear interpolator in the kickers
+      for (auto ip_coor: p.second) kicker[ip_coor.ip][ip_coor.coor].li_density = &li;
+      lis[i_li].ip_coor = p.second;
+      ++i_li;
     }
-    if (n_field_cells > 0) {
+  }
+  if (n_field_cells > 0) {
+    // group identical bunches into a map
+    map<array<MultiG, 2>, vector<int> > m; // m[(MultiG_X, MultiG_Y)] = vector of kicker ips
+    for (int ip = 0; ip < int(kicker.size()); ++ip) {
+      const auto& k = kicker[ip];
+      array<MultiG, 2> mg_XY;
+      for (int coor=0; coor<2; ++coor) mg_XY[coor] = k[coor];
+      m[mg_XY].push_back(ip);
+    }
+    bis.clear(); // in case it was already initialized
+    // loop over groups of identical bunches: find the range of the beam
+    // movements at IPs where bunches are identical and define bilinear
+    // interpolator in a wide enough grid
+    bis.resize(m.size()); // create one per group
+    int i_bi = 0;
+    for (const auto& p: m) {
+      array<pair<double, double>, 2> range; // [0/1 for x/y].first/second = min/max
+      // initialize min by maximal double and vice versa
+      range[1] = range[0] = make_pair(numeric_limits<double>::max(), -numeric_limits<double>::max());
+      for (int ip: p.second) { // ip = kicker index
+	Kicker_MultiG_XY& k = kicker[ip];
+	for (int coor=0; coor<2; ++coor) {
+	  auto r = minmax_element(k[coor].position.begin(), k[coor].position.end());
+	  // Positions are specified in the frame where the kicked bunch is at
+	  // (0,0), while the field map - with the kicker at (0,0). So, for the
+	  // field map the positions should be subtracted and min/max - swapped:
+	  range[coor].first  = min(-(*r.second), range[coor].first);
+	  range[coor].second = max(-(*r.first ), range[coor].second);
+	}
+      }
+      for (int coor=0; coor<2; ++coor) {
+	range[coor].first  -= 1.1 * kicked[coor].cut;
+	range[coor].second += 1.1 * kicked[coor].cut;
+	// 10% margin (1.1) since beam-beam can increase the radius
+      }
       auto& bi = bis[i_bi].field;
       bi.create(range[0].first, range[0].second,
 		range[1].first, range[1].second,
 		n_field_cells,
 		[&k = kicker[p.second[0]]](double x, double y) { return k.field(x, y); });
+	// Other option using binding and placeholders (for a member function the
+	// first "bind" arg is *this, here it is again fixed to kicker[p.second[0]]):
+	//			 bind(&Kicker_MultiG_XY::density,
+	//			      kicker[p.second[0]],
+	//			      placeholders::_1, placeholders::_2));
+	// 
       for (int ip: p.second) kicker[ip].bi_field = &bi;
+      bis[i_bi].ips = p.second;
+      ++i_bi;
     }
-    bis[i_bi].ips = p.second;
-    ++i_bi;
   }
 }
 double Mutli_XY_Gaussian_bunches::not_normalized_r_kicked_density(int coor, double r) const {
@@ -276,10 +310,10 @@ double Mutli_XY_Gaussian_bunches::not_normalized_r_kicked_density(int coor, doub
 pair<double, double> Mutli_XY_Gaussian_bunches::r_cut() const { return make_pair(kicked[0].cut, kicked[1].cut); }
 double Mutli_XY_Gaussian_bunches::kicker_density(double x, double y, int ip) const {
   const auto& k = kicker[ip];
-  if (k.bi_density == nullptr) {
-    return k.density(x, y);
+  if (k[0].li_density == nullptr) {
+    return k[0].density(x) * k[1].density(y);
   } else {
-    return (*k.bi_density)(x, y);
+    return (*k[0].li_density)(x) * (*k[1].li_density)(y);
   }
 }
 complex<double> Mutli_XY_Gaussian_bunches::field(double x, double y, int ip) const {
@@ -289,9 +323,6 @@ complex<double> Mutli_XY_Gaussian_bunches::field(double x, double y, int ip) con
   } else {
     return (*k.bi_field)(x, y);
   }
-}
-double Mutli_XY_Gaussian_bunches::Kicker_MultiG_XY::density(double x, double y) const {
-  return (*this)[0].density(x) * (*this)[1].density(y);
 }
 complex<double> Mutli_XY_Gaussian_bunches::Kicker_MultiG_XY::field(double x, double y) const {
   const MultiG_SigSq &x2 = (*this)[0], &y2 = (*this)[1];
@@ -312,17 +343,17 @@ int Mutli_XY_Gaussian_bunches::n_ip() const { return kicker.size(); }
 const vector<double>& Mutli_XY_Gaussian_bunches::kicker_positions(int ip, int coor) const {
   return kicker[ip][coor].position;
 }
-bool Mutli_XY_Gaussian_bunches::is_density_interpolated() { return !bis.empty() && !bis[0].density.empty(); }
+bool Mutli_XY_Gaussian_bunches::is_density_interpolated() { return !lis.empty(); }
 // check bis[0] only, others should be the same since the interpolation is
 // switched on/off for all IPs at once
-bool Mutli_XY_Gaussian_bunches::is_field_interpolated  () { return !bis.empty() && !bis[0].field.empty(); }
-vector<pair<double, double> >
+bool Mutli_XY_Gaussian_bunches::is_field_interpolated  () { return !bis.empty(); }
+vector<array<pair<double, double>, 2> >
 Mutli_XY_Gaussian_bunches::max_and_average_interpolation_mismatches_relative_to_max_density(int n_random_points) {
-  vector<pair<double, double> > res(kicker.size());
-  for (const auto& x: bis) {
+  vector<array<pair<double, double>, 2> > res(kicker.size());
+  for (const auto& x: lis) {
     pair<double, double> p =
       x.density.max_and_average_mismatches_relative_to_max(n_random_points);
-    for (int i: x.ips) res[i] = p;
+    for (auto i: x.ip_coor) res[i.ip][i.coor] = p;
   }
   return res;
 }

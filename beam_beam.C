@@ -102,14 +102,14 @@ struct Config_Mutli_XY_Gaussian_bunches : public Mutli_XY_Gaussian_bunches {
       }
     }
     // Bilinear interpolation
-    const vector<long int>& bi_n_cells =
+    const vector<long int>& n_cells =
       c.vl("Density.and.Field.bilinear.interpolators.N.cells.along.grid.side");
-    if (bi_n_cells.size() != 2) {
+    if (n_cells.size() != 2) {
       cerr << "Density.and.Field.bilinear.interpolators.N.cells.along.grid.side "
 	   << "should contain two numbers (for the density and for the field)\n";
       exit(1);
     }
-    reset_bilinear_interpolators(bi_n_cells[0], bi_n_cells[1]);
+    reset_interpolators(n_cells[0], n_cells[1]);
   }
 protected:
   // mask initialization functions from the base class:
@@ -286,7 +286,7 @@ int main(int argc, char** argv) {
     //
     Outputs output(n, c, output_dir,
 		   // find max in pair<double,double> returned by bb.r_cut()
-		   apply([](double a, double b) {return max(a,b); }, bb.r_cut()));
+		   [](auto p) {return max(p.first, p.second); }(bb.r_cut()));
     //
     for (int i_turn = 0; i_turn < n.turns(N::ADIABATIC); ++i_turn) {
       double trans_w = double(i_turn + 1) / n.turns(N::ADIABATIC);
@@ -493,7 +493,7 @@ int main(int argc, char** argv) {
 		     << analytic_kick << " "
 		     << approx_analytic_avr_z << "\n";
     }
-    cout << "done" << endl;
+    cout << " done" << endl;
   } // end of loop over steps
     //
   if ( (bb.is_density_interpolated() || bb.is_field_interpolated()) &&
@@ -503,12 +503,13 @@ int main(int argc, char** argv) {
     // points inside the interpolation grid
     int N_random_points = c("N.random.points.to.check.bilinear.interpolation");
     if (bb.is_density_interpolated()) {
-      vector<pair<double, double> > v =
+      vector<array<pair<double, double>, 2> > v =
 	bb.max_and_average_interpolation_mismatches_relative_to_max_density(N_random_points);
       cout << "Max and average |precise - interpolated| density mismatches normalized to max density at\n";
       for (int ip=0; ip<v.size(); ++ip) {
-	cout << "    IP " << ip << ": "
-	     << v[ip].first << ", " << v[ip].second << "\n";
+	cout << "    IP " << ip << " along X: "
+	     << v[ip][0].first << ", " << v[ip][0].second << "; along Y: "
+	     << v[ip][1].first << ", " << v[ip][1].second << "\n";
       }
     }
     if (bb.is_field_interpolated()) {
