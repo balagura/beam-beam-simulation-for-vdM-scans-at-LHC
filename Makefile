@@ -4,8 +4,14 @@
 
 # all: beam_beam $(summary_targets)
 
-all: beam_beam \
-     beam_beam_model_validation
+all: bb
+
+#beam_beam \
+#     beam_beam_model_validation
+
+bb : config.hh config.C bb.C Faddeeva.hh Faddeeva.cc E_field.hh bilinear_interpolator.hh n.hh output.hh \
+            gzstream.C gzstream.h multi_gaussian.hh multi_gaussian.C n.C output.C
+	g++ -O2 -std=c++17 -I. bb.C Faddeeva.cc multi_gaussian.C config.C n.C output.C gzstream.C -o bb -lz -pthread
 
 beam_beam : config.hh config.C beam_beam.C Faddeeva.hh Faddeeva.cc E_field.hh bilinear_interpolator.hh \
             gzstream.C gzstream.h
