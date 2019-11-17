@@ -27,7 +27,6 @@
 using namespace std;
 using namespace std::complex_literals;
 
-ostream& operator<<(ostream& os, complex<double> c) { return os << real(c) << " " << imag(c); }
 //
 // Same as Mutli_XY_Gaussian_bunches but takes all parameters from Config& c
 // and also "n_ip"
@@ -103,9 +102,9 @@ struct Config_Mutli_XY_Gaussian_bunches : public Mutli_XY_Gaussian_bunches {
     }
     // Bilinear interpolation
     const vector<long int>& n_cells =
-      c.vl("Density.and.Field.bilinear.interpolators.N.cells.along.grid.side");
+      c.vl("Density.and.Field.interpolators.N.cells.along.grid.side");
     if (n_cells.size() != 2) {
-      cerr << "Density.and.Field.bilinear.interpolators.N.cells.along.grid.side "
+      cerr << "Density.and.Field.interpolators.N.cells.along.grid.side "
 	   << "should contain two numbers (for the density and for the field)\n";
       exit(1);
     }
@@ -122,16 +121,6 @@ protected:
 };
 
 int main(int argc, char** argv) {
-  // -------------------- Across 2D X-Y plane with weights --------------------
-  // Our integral is 4-dimensional: over X,X',Y,Y'. But, one can integrate over
-  // X-X', Y-Y' "circles" by averaging over turns, as one point "rotates" and
-  // "swipes" those circles. So, one can integrate only over "circle" radii (rX,
-  // rY). This is done below using 2-dimensional rX, rY Gaussian distribution,
-  // it is covered by the grid of points inside the circle with R = 5 sigma. The
-  // 2D Gaussian weight is assigned to every point, then the integral is
-  // calculated as the sum of (2nd bunch densities * weight) over the sample of
-  // "particles" starting from this grid with random phases and "turning" many
-  // times.
   string config_file;
   if (argc != 2) {
     cout << "Usage: <program name> <configuration file>\n";
@@ -161,30 +150,36 @@ int main(int argc, char** argv) {
     }
     return 1;
   }
-  cout << "Output directory: " << output_dir << endl;
 
   N n(c);
   Config_Mutli_XY_Gaussian_bunches bb(c, n.ip());
-  if (c.vd("beta").size() != n.ip()) {
-    cerr << "Given number of \"beta\" values (" << c.vd("beta").size()
+  if (c.vd("kicked.x.beta").size() != n.ip()) {
+    cerr << "Given number of X-\"beta\" values (" << c.vd("beta").size()
 	 << ") is not equal to the number of IPs (" << n.ip() << ")\n";
     return 1;
   }
-  if (c.vd("N2").size() != n.ip()) {
-    cerr << "Given number of \"N2\" values (" << c.vd("N2").size()
+  if (c.vd("kicked.y.beta").size() != n.ip()) {
+    cerr << "Given number of Y-\"beta\" values (" << c.vd("beta").size()
 	 << ") is not equal to the number of IPs (" << n.ip() << ")\n";
     return 1;
   }
-  vector<double> kick_const(n.ip());
+  if (c.vd("N.kicker.particles").size() != n.ip()) {
+    cerr << "Given number of \"N.kicker.particles\" values (" << c.vd("N.kicker.particles").size()
+	 << ") is not equal to the number of IPs (" << n.ip() << ")\n";
+    return 1;
+  }
+  vector<array<double, 2> > kick_const(n.ip());
   {
     double alpha = 1. / 137.035;
     double hbar = 0.197327e-15; // in Gev * m
     double beta0 = 1; // velocity/c of the second bunch in the reference frame of the first
-    transform(c.vd("beta").begin(), c.vd("beta").end(),
-	      c.vd("N2"  ).begin(), kick_const.begin(),
-	      [factor = 2 * c("Z1") * c("Z2") * alpha * hbar /
-	       beta0 / c["p"] * 1e12] // in um^2
-	      (double beta, double N2) { return factor * beta * N2; });
+    double factor =
+      2 * c("Z.kicked") * c("Z.kicker") * alpha * hbar / beta0 / c["p"] * 1e12; // in um^2
+    for (int ip=0; ip<n.ip(); ++ip) {
+      double n = c.vd("N.kicker.particles")[ip];
+      kick_const[ip][0] = factor * n * c.vd("kicked.x.beta")[ip];
+      kick_const[ip][1] = factor * n * c.vd("kicked.y.beta")[ip];
+    }
   }
   enum {PRECISE, PRECISE_MINUS_AVERAGE, AVERAGE} kick_model = PRECISE;
   if (c.defined("kick.model") && c.s("kick.model") != "precise") {
@@ -201,11 +196,11 @@ int main(int argc, char** argv) {
   // will not be simulated, so size()'s == N_points_in_step <= N_ponts):
   vector<double> rx, ry, w;
   {
-    // sqrt(n.points_max()) will be used to sample intervals
-    // rX = [0...cut_x], rY = [0...cut_y], where cut_x,y were chosen to
-    // reproduce the efficiency of "N.sigma" configuration cut for a single
-    // Gaussian bunch. Ie. the areas of the rejected multi-Gaussian tails ==
-    // the area of a single Gaussian outside +/-N.sigma.
+    // sqrt(n.points_max()) will be used to sample intervals rX = [0...cut_x],
+    // rY = [0...cut_y], where cut_x,y were chosen to reproduce the efficiency
+    // of "N.sigma.cut" configuration cut for a single Gaussian bunch. Ie. the
+    // areas of the rejected multi-Gaussian tails == the area of a single
+    // Gaussian outside +/-N.sigma.cut.
     //
     int N_sqrt = int(sqrt(n.points_max()));
     vector<double> rX_bins(N_sqrt), rY_bins(N_sqrt);
@@ -242,6 +237,7 @@ int main(int argc, char** argv) {
   if (c.defined("output")) {
     if (c.s("output") == "rx.ry.weights") {
       ogzstream os((output_dir + "/rx_ry_weights.txt.gz").c_str());
+      os << scientific; // change to scientific format for doubles
       for (size_t i = 0; i < n.points(); ++i) {
 	os << i << " "
 	   << rx[i] << " "
@@ -257,7 +253,14 @@ int main(int argc, char** argv) {
   //
   // print Config when all type conversions are resolved
   cout << c;
-  ofstream output_summary(output_dir + "/summary.txt");
+  ofstream output_kicker_positions(output_dir + "/kicker_positions.txt");
+  ofstream output_summary         (output_dir + "/summary.txt");
+  output_kicker_positions << scientific;  // change to scientific format for doubles
+  output_summary << scientific;
+  //
+  Outputs output(n, c, output_dir,
+		 // find max in pair<double,double> returned by bb.r_cut()
+		 [](auto p) {return max(p.first, p.second); }(bb.r_cut()));
   //
   // main loop
   for (int step = 0; step < bb.kicker_positions(0,0).size(); ++step) {
@@ -269,31 +272,32 @@ int main(int argc, char** argv) {
     cout << "Processing beam separation";
     if (bb.kicker_positions(0, 0).size() > 1) cout << "s";
     for (size_t ip=0; ip<n.ip(); ++ip) {
-      cout << "(" << z2[ip] << ") ";
+      cout << z2[ip] << " ";
     }
     cout << "..." << flush;
     // average kick when the first bunch is at -z2[ip] and the second is at
     // (0,0):
     vector<complex<double> > kick_average(n.ip());
     for (int ip=0; ip<n.ip(); ++ip) {
-      kick_average[ip] = kick_const[ip] *
-	bb.field_averaged_over_kicked_bunch(-real(z2[ip]), -imag(z2[ip]), ip);
+      complex<double> field = bb.field_averaged_over_kicked_bunch(-real(z2[ip]), -imag(z2[ip]), ip);
+      kick_average[ip] = complex<double>(kick_const[ip][0] * real(field),
+					 kick_const[ip][1] * imag(field));
     }
     //
-    vector<vector<double> > kick_adiabatic(n.ip(), vector<double>(n.turns(N::ADIABATIC)));
+    vector<vector<array<double, 2> > >
+      kick_adiabatic(n.ip(), vector<array<double, 2> >(n.turns(N::ADIABATIC)));
     vector<vector<complex<double> > >
       kick_average_adiabatic(n.ip(), vector<complex<double> >(n.turns(N::ADIABATIC)));
-    //
-    Outputs output(n, c, output_dir,
-		   // find max in pair<double,double> returned by bb.r_cut()
-		   [](auto p) {return max(p.first, p.second); }(bb.r_cut()));
+    output.reset(n);
     //
     for (int i_turn = 0; i_turn < n.turns(N::ADIABATIC); ++i_turn) {
       double trans_w = double(i_turn + 1) / n.turns(N::ADIABATIC);
       // linearly increasing from 1/n.turns(N::ADIABATIC) for i_turn=0,
       //                       to 1 for i_turn = n.turns(N::ADIABATIC)-1
       for (int ip=0; ip<n.ip(); ++ip) {
-	kick_adiabatic[ip][i_turn] = kick_const[ip] * trans_w;
+	for (int coor=0; coor<2; ++coor) {
+	  kick_adiabatic        [ip][i_turn][coor] = kick_const  [ip][coor] * trans_w;
+	}
 	kick_average_adiabatic[ip][i_turn] = kick_average[ip] * trans_w;
       }
     }
@@ -312,17 +316,21 @@ int main(int argc, char** argv) {
 		 //
 		 auto turn_and_kick =
 		   [&bb, kick_model, &z2](int ip,
-					       // either trainsitional or nominal:
-					       double k_const,
-					       complex<double> k_average,
-					       complex<double>& xZ, complex<double>& yZ) {
+					  // either trainsitional or nominal:
+					  array<double, 2> k_const,
+					  complex<double> k_average,
+					  complex<double>& xZ, complex<double>& yZ) {
 		     complex<double> kick, z1_minus_z2 = complex<double>(real(xZ), real(yZ)) - z2[ip];
 		     if (kick_model == PRECISE) {
-		       kick = k_const * bb.field(real(z1_minus_z2), imag(z1_minus_z2), ip);
+		       complex<double> field = bb.field(real(z1_minus_z2), imag(z1_minus_z2), ip);
+		       kick = complex<double>(k_const[0] * real(field),
+					      k_const[1] * imag(field));
 		     } else if (kick_model == AVERAGE) {
 		       kick =  k_average;
 		     } else { //  PRECISE_MINUS_AVERAGE: 
-		       kick = k_const * bb.field(real(z1_minus_z2), imag(z1_minus_z2), ip) - k_average;
+		       complex<double> field = bb.field(real(z1_minus_z2), imag(z1_minus_z2), ip);
+		       kick = complex<double>(k_const[0] * real(field),
+					      k_const[1] * imag(field)) - k_average;
 		     }
 		     // The momentum kick is subtracted below because of the minus sign in
 		     // the definition of eg. zX = X - iX'. The kick is added to X',
@@ -343,21 +351,21 @@ int main(int argc, char** argv) {
 		     complex<double> z1 = complex<double>(real(xZ), real(yZ));
 		     complex<double> z1_minus_z2 = z1 - z2[ip];
 		     double rho2 = bb.kicker_density(real(z1_minus_z2), imag(z1_minus_z2), ip);
-		     // Integrals_Per_Circle keeps integrals for bunches with
+		     // Integrals_Per_Particle keeps integrals for bunches with
 		     // densities concentrated at one particle's point
 		     // (delta-function density), so weight = 1. They will be
 		     // reweighted with w[i] in the calculation of the final
 		     // overlap integral appearing in summary
-		     output.get<Integrals_Per_Circle>(ip).add(phase, i, rho2); // always filled
-		     if (output.is_active<Avr_Z_Per_Circle>(ip)) {
-		       output.get<Avr_Z_Per_Circle>(ip).add(phase, i, z1);
+		     output.get<Integrals_Per_Particle>(ip).add(phase, i, rho2); // always filled
+		     if (output.is_active<Avr_XY_Per_Turn_Per_Particle>(ip)) {
+		       output.get<Avr_XY_Per_Turn_Per_Particle>(ip).add(phase, i, z1);
 		     }
-		     if (output.is_active<Integrals>(ip)) {
-		       // Integrals a reweighted immediately
-		       output.get<Integrals>(ip).add(i_turn, rho2 * w[i]);
+		     if (output.is_active<Integrals_Per_Turn>(ip)) {
+		       // Integrals_Per_Turn are reweighted immediately
+		       output.get<Integrals_Per_Turn>(ip).add(i_turn, rho2 * w[i]);
 		     }
-		     if (output.is_active<Avr_Z>(ip)) {
-		       output.get<Avr_Z>(ip).add(i_turn, z1 * w[i]);
+		     if (output.is_active<Avr_XY_Per_Turn>(ip)) {
+		       output.get<Avr_XY_Per_Turn>(ip).add(i_turn, z1 * w[i]);
 		     }
 		     if (output.is_active<Points>(ip) && (i_turn + 1) % n.select_turns() == 0) {
 		       // It is more convenient here to count from one,
@@ -422,15 +430,15 @@ int main(int argc, char** argv) {
 		     }
 		   }
 		 }
-		 // Do not multiply *_per_circle variables by w[i] even here,
-		 // but assume they correspond to rho1 density 100%
+		 // Do not multiply *_per_particle variables by w[i] even
+		 // here, but assume they correspond to rho1 density 100%
 		 // concentrated at the simulated particle (or
 		 // circle). Normalize only by n.turns()
 		 for (size_t ip=0; ip<n.ip(); ++ip) {
 		   for (int phase = 0; phase < N::PHASES; ++phase) {
-		     output.get<Integrals_Per_Circle>(ip).normalize_by_n_turns(n.turns(phase), phase, i);
-		     if (output.is_active<Avr_Z_Per_Circle>(ip)) {
-		       output.get<Avr_Z_Per_Circle>(ip).normalize_by_n_turns(n.turns(phase), phase, i);
+		     output.get<Integrals_Per_Particle>(ip).normalize_by_n_turns(n.turns(phase), phase, i);
+		     if (output.is_active<Avr_XY_Per_Turn_Per_Particle>(ip)) {
+		       output.get<Avr_XY_Per_Turn_Per_Particle>(ip).normalize_by_n_turns(n.turns(phase), phase, i);
 		     }
 		   }
 		 }
@@ -445,27 +453,28 @@ int main(int argc, char** argv) {
     // wait for completion of all threads:
     for (int i = 0; i < n.points(); ++i) threads[i].join();
     // 
-    output.write(step, z2);
+    output.write(step);
     // write summary
     for (int ip=0; ip<n.ip(); ++ip) {
-      auto integ_avr = output.get<Integrals_Per_Circle>(ip).weighted_average(w);
-      // int0 can also be calculated as a mean of out<Integrals> (per turn)
+      auto integ_avr = output.get<Integrals_Per_Particle>(ip).weighted_average(w);
+      // int0 can also be calculated as a mean of out<Integrals_Per_Turn> (per turn)
       double int0 = integ_avr[N::NO_BB];
       double int_to_int0_correction = integ_avr[N::BB] / int0;
 
       double int0_analytic = bb.overlap_integral(real(z2[ip]), imag(z2[ip]), ip);
       double int0_to_analytic = int0 / int0_analytic;
 
-      complex<double> avr_z = output.get<Avr_Z_Per_Circle>(ip).weighted_average(w)[N::BB];
+      complex<double> avr_z = output.get<Avr_XY_Per_Turn_Per_Particle>(ip).weighted_average(w)[N::BB];
       // the sign of "analytic_kick" (printed below) is not inverted, ie. it is
       // for X', not for z = X - iX'
       //
-      // note, it has units of X', ie. of length; to convert to angles, one needs
-      // to divide by beta*
+      // note, it has units of X', ie. of length; to convert to angles, one
+      // needs to divide by beta*
       //
-      // kick_const is halved because of the accelerator dynamics: if field() =
-      // const = E, after many turns the ratio angle/E is kicked from initial
-      // -kick_const/2 to final +kick_const/2, and their difference is kick_const.
+      // kick_average is halved because of the accelerator dynamics: if
+      // field() = const = E, after many turns the ratio angle/E is kicked
+      // from initial -kick_average/2 to final +kick_average/2, and their
+      // difference is kick_average.
       //
       complex<double> analytic_kick = kick_average[ip] / 2.;
       // the X(Y) shift corresponding to X'(Y') angular kick
@@ -473,43 +482,46 @@ int main(int argc, char** argv) {
 	complex<double>(real(analytic_kick) / tan(M_PI * bb.deltaQ(ip, 0)),
 			imag(analytic_kick) / tan(M_PI * bb.deltaQ(ip, 1)));
       double int0_rel_err = -9999;
-      if (output.is_active<Integrals>(ip)) {
+      if (output.is_active<Integrals_Per_Turn>(ip)) {
 	double sd_int0 = 0;
 	for (int turn=0; turn<n.turns(0); ++turn) {
-	  double dx = output.get<Integrals>(ip).integ()[turn] - int0;
+	  double dx = output.get<Integrals_Per_Turn>(ip).integ()[turn] - int0;
 	  sd_int0 += dx * dx;
-	}    
-	int0_rel_err = sqrt(sd_int0 / (n.turns(0) - 1.) / double(n.turns(0))) / int0;
+	}
+	int0_rel_err = sqrt(sd_int0 / (n.turns(0) - 1.) / double(n.turns(0))) / int0_analytic;
       }
+      output_kicker_positions << step << " " << ip << " "
+			      << real(z2[ip]) << " " << imag(z2[ip]) << "\n";
       output_summary << step << " "
 		     << ip << " "
-		     << z2[ip] << " "
 		     << int_to_int0_correction << " "
 		     << int0_analytic << " "
 		     << int0 << " "
 		     << int0_to_analytic << " "
 		     << int0_rel_err << " "
-		     << avr_z << " "
-		     << analytic_kick << " "
-		     << approx_analytic_avr_z << "\n";
+		     << real(avr_z) << " " << imag(avr_z) << " "
+		     << real(approx_analytic_avr_z) << " "
+		     << imag(approx_analytic_avr_z) << "\n";
     }
     cout << " done" << endl;
   } // end of loop over steps
     //
   if ( (bb.is_density_interpolated() || bb.is_field_interpolated()) &&
-       c.defined("N.random.points.to.check.bilinear.interpolation")) {
+       c.defined("N.random.points.to.check.interpolation")) {
     // check the precision of the interpolation by measuring the absolute
     // mismatches with the exact density/field values at randomly distributed
     // points inside the interpolation grid
-    int N_random_points = c("N.random.points.to.check.bilinear.interpolation");
+    int N_random_points = c("N.random.points.to.check.interpolation");
     if (bb.is_density_interpolated()) {
       vector<array<pair<double, double>, 2> > v =
 	bb.max_and_average_interpolation_mismatches_relative_to_max_density(N_random_points);
       cout << "Max and average |precise - interpolated| density mismatches normalized to max density at\n";
       for (int ip=0; ip<v.size(); ++ip) {
 	cout << "    IP " << ip << " along X: "
+	     << scientific  // change to scientific format for doubles
 	     << v[ip][0].first << ", " << v[ip][0].second << "; along Y: "
-	     << v[ip][1].first << ", " << v[ip][1].second << "\n";
+	     << v[ip][1].first << ", " << v[ip][1].second << "\n"
+	     << fixed;      // change back to defaul fixed format
       }
     }
     if (bb.is_field_interpolated()) {
@@ -518,26 +530,20 @@ int main(int argc, char** argv) {
       cout << "Max and average |precise - interpolated| E-field mismatches normalized to max |E| at\n";
       for (int ip=0; ip<v.size(); ++ip) {
 	cout << "    IP " << ip << ": "
-	     << v[ip].first << ", " << v[ip].second << "\n";
+	     << scientific
+	     << v[ip].first << ", " << v[ip].second << "\n"
+	     << fixed;
       }
     }
   }
-  cout << "Final results are written to " << output_dir << " directory\n"
-       << "The summary appears in \"summary.txt\".\n"
-       << "The 5th column \"int_to_int0_correction\" in this file contains the\n"
-       << "final correction, i.e. the ratio of the luminosities with and\n"
-       << "without beam-beam electromagnetic interaction, for the scan step and\n"
-       << "the corresponding beam offset specified in the first three columns.\n\n"
-    //
-       << "The columns 6-9 refer to no-beam-beam case: : the analytic and numeric\n"
-       << "integrals, their ratio and the estimated relative statistical\n"
-       << "error of the numeric integral.\n\n"
-    //
-       << "The (10,11) column pair gives the numerically calculated x-y shift of\n"
-       << "of the first bunch, while (12,13) and (14,15) pairs give the\n"
-       << "analitically calculated values, the first in the coordinates\n"
-       << "beta*(dx/dz, dy/dz) and the second - in (x,y) under the assumption\n"
-       << "that its ratio to the first pair is -1/tan(pi*Q).\n";
+  cout << "\nFinal results are written to " << output_dir << " directory.\n\n"
+       << "The summary appears in \"summary.txt\" in the format:\n"
+       << "step IP (beam-beam/no beam-beam luminosity correction)\n"
+       << "(analytic, numeric no beam-beam overlap integrals, their ratio and its error; \n"
+       << "note, error = -9999 if \"integrals.per.turn\" option is not requested in \"output\")\n"
+       << "(X,Y average shift of the kicked bunch due to beam-beam interactions in all IPs -\n"
+       << "only if \"centers.per.particle\" is requested in \"output\")\n"
+       << "(the same shift  analytically calculated but from beam-beam in this IP only)\n\n";
   {
     ofstream config_out((output_dir + "/config.txt").c_str());
     config_out << c;
