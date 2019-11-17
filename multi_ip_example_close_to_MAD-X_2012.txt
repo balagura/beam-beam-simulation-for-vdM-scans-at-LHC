@@ -1,0 +1,383 @@
+# Example of modelling the beam-beam perturbation in 4 interaction points
+# (IPs) with multi-Gaussian shapes of one "kicked" and four "kicker" bunches.
+#
+# All multi-Gaussian components and other beam parameters at all IPs are,
+# however, chosen to be almost identical to that of van Meer scan in ATLAS
+# simulated using MAD-X in 2012. Eg. the multi-Gaussians are the sums of 1-4
+# almost identical Gaussians with various weights. The result of the
+# simulation at every IP should, therefore, be the same as for a single
+# Gaussian, single IP case. This allows to debug the simulation.
+#----------------------------------------------------------------------
+#
+#                         Beam parameters
+#
+#----------------------------------------------------------------------
+# Beam momentum in GeV
+#
+p = 3500.
+
+# Charge of the particles in the kicked (simulated) and the kicker bunches
+# (creting the field) in units of the proton charge
+#
+Z.kicked = 1
+Z.kicker = 1
+
+# Number of interaction points
+#
+N.IP = 4
+
+# The value of the beta-function at the simulated interaction points
+# (beta-star), separately along X and Y, in meters.
+#
+# Twice smaller beta* at last IP is compensated by twice larger number of
+# particles and, therefore, twice larger beam-beam kick. Note, only the
+# product of the beta* value and the number of particles matters, so the
+# last IP should be identical to the others.
+#
+kicked.x.beta = 1.5 1.5 1.5 0.75
+kicked.y.beta = 1.5 1.5 1.5 0.75
+
+# Number of particles in the kickers
+#
+N.kicker.particles = 8.5e10 8.5e10 8.5e10 17e10
+
+# kicked bunch Gaussian sigmas and weights in X and Y, in um
+#
+# Here, in X the distribution is double Gaussian but with the same widths, in
+# Y - single Gaussian
+#
+kicked.x.sig = 40 40
+kicked.y.sig = 40
+
+# Gaussian weights can be given not normalized. Here, in X the proportions
+# will be 1:2. In Y, for a single Gaussian, the weight can be omitted.
+#
+kicked.x.weight = 1 2
+# kicked.y.weight = 1
+
+# Gaussian sigmas and weights in X and Y, in um, for the kicker bunches at all
+# IPs
+#
+kicker.1.x.sig = 40 40
+kicker.1.y.sig = 40 40
+
+# The last Gaussian weight can be omitted, then it is set to the value
+# complementing the total weight to one. Note, this means that eg. for a
+# triple Gaussian (when 3 sigmas are given) the weights 50 49 will be
+# complemented not by 1 (they are not in percent) but by 1 - (50+49) = -98.
+# So, this option is useful only when the weights are normalized.
+#
+kicker.1.x.weight = 0.9
+kicker.1.y.weight = 0.9 0.1
+
+# If the kicker density and the field are interpolated (see below), the
+# simulation of multi-Gaussian (round or elliptical) bunches and
+# single-Gaussian ones takes about the same time. So, the elliptical
+# four-Gaussian below does not slow down the simulation
+#
+kicker.2.x.sig = 40.002 39.999 40.001 39.998
+kicker.2.y.sig = 40.
+kicker.2.x.weight = 2 10 10 2
+kicker.2.y.weight = 0.001
+
+kicker.3.x.sig = 40 40
+kicker.3.y.sig = 40
+kicker.3.x.weight = 1 1
+# kicker.3.y.weight = 10
+
+kicker.4.x.sig = 40 40
+kicker.4.y.sig = 40.001 39.999
+kicker.4.x.weight = 20 80
+kicker.4.y.weight = 1 1
+
+# The sequence of X, Y kicker bunch center coordinates w.r.t. the kicked
+# bunch, in um. Every (X, Y) pair corresponds to one van der Meer scan step.
+#
+# The length of all vectors should be either one or maximal. If it is one, the
+# corresponding coordinate is assumed to be constant during the scan.
+#
+
+# Below, the separations at all IPs are the same, to have the same results
+# everywhere
+#
+kicker.1.x = 0.  10.  20.  30.  40.  50.  60.  70. 80. 90. 100. 110. 120. 130. 140. 150. 160. 170. 180. 190. 200.
+kicker.1.y = 0
+
+kicker.2.x = 0.  10.  20.  30.  40.  50.  60.  70. 80. 90. 100. 110. 120. 130. 140. 150. 160. 170. 180. 190. 200.
+kicker.2.y = 0
+
+kicker.3.x = 0.  10.  20.  30.  40.  50.  60.  70. 80. 90. 100. 110. 120. 130. 140. 150. 160. 170. 180. 190. 200.
+kicker.3.y = 0
+
+kicker.4.x = 0.  1.  2.  3.  4.  5.  6.  7. 8. 9. 10. 11. 12. 13. 14. 15. 16. 17. 18. 19. 20.
+kicker.4.y = 0
+
+# If scale.by is given as below, the corresponding coordinate is multiplied by this scaling factor
+kicker.4.x.scale.by = 10.
+kicker.4.y.scale.by = 1000000
+
+# The phases relative to ATLAS IP at LHC in vdM scans from Guido Sterbini MAD-X simulation:
+# https://indico.cern.ch/event/836681/contributions/3507678/attachments/1884149/3105236/2019_07_22.pdf
+# indico: https://indico.cern.ch/event/836681/
+#  
+#      Qx1       Qy1       Qx2       Qy2
+#  0.000000  0.000000  0.000000  0.000000
+#  8.295954  7.669167  8.272802  7.957720
+# 31.975690 29.648602 31.984398 29.761319
+# 56.064831 51.017069 55.799012 51.715754
+# 64.310000 59.320000 64.310000 59.320000
+#
+# From that one needs to calculate the phase advances *between* IPs, ie. the
+# differences between those numbers:
+#
+# Simulated kicked bunch in beam 1, kicker bunches in beam 2:
+# kicker.x.phase.advance =  8.295954 23.679736 24.089141  8.245169
+# kicker.y.phase.advance =  7.669167 21.979435 21.368467  8.302931
+#
+# Simulated kicked bunch in beam 2, kicker bunches in beam 1:
+# kicker.x.phase.advance =  8.272802 23.711596 23.814614  8.510988
+# kicker.y.phase.advance =  7.957720 21.803599 21.954435  7.604246
+#
+#
+# Instead of these values, for debugging purposes, here the full tunes are
+# chosen below for all phase advances. Then, all IPs become equivalent and the
+# results should coincide with the single-IP case.
+#
+kicker.x.phase.advance =  64.31 64.31 64.31 64.31 
+kicker.y.phase.advance =  59.32 59.32 59.32 59.32 
+
+# Phase advances or full tunes might be given with 2-3 digits after the
+# comma. So, after 100 or 1000 turns the points return to their original
+# positions (as 100* or 1000 * Qx,y becomes integer). To avoid this and add
+# extra randomness, a "negligible" irrational number randomly distributed
+# in the interval -exp(-8.5)...+exp(-8.5) = +/-0.0001017342 is added by
+# default to deltaQ. This makes it irrational and opens otherwise closed
+# Lissajous figures of betatron oscillations in X-Y plane. In reality the
+# phase advances are always irrational.
+#
+# If this is not desired, an option
+#   exact.phase.advances = TRUE
+# should be set. Then all phase advances from the configuration file are used
+# "as is".
+#
+# exact.phase.advances = TRUE
+
+
+#----------------------------------------------------------------------
+#
+#                        Simulation parameters
+#
+#----------------------------------------------------------------------
+# The traced points of the "kicked" bunch are selected in the following way.
+#
+# The bunch density factorizes in X and Y. Its projections to X and Y are two
+# multi-Gaussian distributions.  Because of the circular motion in X-X' and
+# Y-Y' planes (where X',Y' denote the angular coordinates, eg. X' = dX/dZ *
+# beta), the projections to X' (Y') are identical to X (Y). So, eg. a single
+# Gaussian in X makes a two-dimensional Gaussian with equal sigmas in X-X'
+# plane, and a multi-Gaussian makes a multi two-dimensional Gaussian with the
+# same weights.
+#
+# The four-dimensional bunch density is sampled in a two-dimensional rX-rY
+# grid of the radii in the X-X', Y-Y' planes.
+#
+# Each grid side (rX or rY) extends from 0 to a maximal radius rX,Y_max. The
+# latter is chosen such that the circle with the radius rX_max (or rY_max)
+# contains the the same fraction of a multi two-dimensional Gaussian as that
+# of a single two-dimensional Gaussian inside the circle with the radius
+# "N.sigma".
+#
+# The number of grid lines in rX and rY are the same and equal to
+# int(sqrt("N.points")). Finally, only rX-rY points inside the ellipse
+# inscribed to the rectangle (rX_max X rY_max) are used for the
+# simulation. For every selected rX-rY pair, one point at the X-X', Y-Y'
+# circles with these radii and random phases is traced in the accelerator.
+#
+N.sigma.cut = 5
+N.points = 5000
+
+# There are several "phases" in the simulation.
+#
+# First phase is without beam-beam. It allows to calculate numerically the
+# undisturbed overlap integral, compare it with the exact analytic formula and
+# estimate the bias of the numerical integration. The final correction is then
+# calculated as a ratio of the numerical integrals with (last phase) and
+# without (first phase) the beam-beam interaction. The bias is cancelled in
+# the ratio at least partially and this potentially allows to improve the
+# precision.
+#
+# During the second phase the beam-beam interaction is switched on
+# "adiabatically": linearly with the turn number from zero to its nominal
+# value. If this phase is omitted (zero turns) the switch is abrupt: from
+# zero to nominal.
+#
+# After beam-beam is fully switched on, there might be a need to wait for the
+# stabilization. This is the third phase. With the adiabatic switch on
+# (eg. during 1000 turns) the stabilization phase can normally be omitted and
+# the corresponding number of turns can be set to zero.
+#
+# The final, fourth phase is with beam-beam. Only this phase is used to
+# calculate the perturbed overlap integral and the luminosity correction.
+#
+# The following parameter defines the number of turns in 4 phases
+#
+N.turns = 1000 1000 0 5000
+
+# To speed up the simulation, the X- and Y-densities of the kicker bunch at a
+# given point are determined using linear (one-dimensional) interpolations,
+# while the generated field E - using a bilinear (two-dimensional)
+# interpolation. For that, the precise density and the field are precalculated
+# at the grid of points and interpolated in between.
+#
+# The interpolation grid is chosen to minimally cover the ranges +/- 1.1 *
+# rX_max, +/- 1.1 * rY_max around the kicked bunch center but viewed from the
+# kicker bunch center for all set kicker separations. Here, rX,Y_max are the
+# maximal simulated radii in X-X' and Y-Y' planes.  Therefore, the grid is
+# sufficiently wide to cover all simulated without beam-beam particle
+# trajectories (circles), while with 10% margins (with the factor 1.1) it
+# likely covers also the trajectories deformed by the beam-beam
+# interaction. If not, ie. if some point goes beyond the interpolation grid,
+# the program falls back to the calculation of the exact field instead of the
+# interpolation.
+
+# The linear (bilinear) grid is a raw (a matrix) of N (NxN) cells and has the
+# total number of points N+1 ((N+1)*(N+1)). N is defined separately for the
+# one-dimensional (X,Y)-density and for the two-dimensional field
+# interpolators by the following parameter
+# "Density.and.Field.interpolators.N.cells.along.grid.side". If the
+# interpolation is not desired, the corresponding N should be set to zero,
+# like "0 500". The first number is for the density, the second - for the
+# field, so the density will be calculated using exact formulas while the
+# field will be interpolated with N=500.
+#
+Density.and.Field.interpolators.N.cells.along.grid.side = 500 500
+
+# The interpolators are created not for each kicker bunch but for each group
+# of identical bunches. Ie. if there are identical kickers, the interpolators
+# are reused to save memory.
+#
+# The accuracy of the interpolation can be estimated if the parameter
+# "N.random.points.to.check.interpolation" below is given. This is performed
+# by measuring the maximal and average absolute mismatches between the
+# interpolated and the exact values at
+# "N.random.points.to.check.interpolation" distributed inside the
+# interpolation grid. The mismatches are then normalized to the maximal
+# absolute exact value and printed out.
+#
+# If the interpolation was switched off by setting one or both
+# "Density.and.Field.interpolators.N.cells.along.grid.side" values to zero,
+# the corresponding "N.random.points.to.check.interpolation" has no
+# effect. The check is not performed either if
+# "N.random.points.to.check.interpolation" is set to zero.
+#
+N.random.points.to.check.interpolation = 10000
+
+# Seed for the random number generator. The results of the simulation will be
+# fully reproducible if this parameter is specified. Otherwise, the current
+# time will be used as a seed, and the results will be not reproducible.
+seed = 12121212121
+
+# For the debugging purposes one can redefine the kick formula by setting
+# "kick.model" parameter to one of the following:
+#
+#  precise
+#  precise.minus.average
+#  average
+#
+# If not specified, "precise" is used by default. In this case the exact kick
+# formula is used.
+#
+# "average" means constant X,Y-independent kick equal to the value averaged
+# over the kicked bunch, ie. to the sum of the kicks of all bunch particles
+# divided by their number. This average kick depends only on the bunch
+# separation, but not on X,Y. For the Gaussian bunches it can be calculated as
+# the action of the kicker bunch with (Capital) sigma = sqrt(sigma1^2 +
+# sigma2^2) on one particle placed at the kicked bunch center. The constant
+# kick only shifts the first bunch center ("orbit shift"), but do not modify
+# its shape, so the resulting luminosity change can be computed using analytic
+# formula.
+#
+# "precise.minus.average" means that the kick is chosen to be the difference
+# "precise" - "average".  This model is implemented to demonstrate that the
+# "precise" beam-beam luminosity corrections coincide with (and can be
+# decoupled to) the sum of the corrections obtained with
+# "precise.minus.average" and "average".
+#
+kick.model = precise
+
+#----------------------------------------------------------------------
+#
+#                            Output
+#
+#----------------------------------------------------------------------
+# "output.1" ("output.2" ...) parameter below controls what should be the
+# output of the simulation per IP. It is a white-space separated list of
+# options below. For every option XXXX.XXXX one compressed file will be
+# generated under the name "XXXX_XXXX.txt.gz".
+#
+# "output" options:
+#
+#   "rx.ry.weights" for every simulated particle: its initial rX and rY radii
+#                   (in X,X' and Y,Y' phase spaces) and their "weights" (the
+#                   central points have more weight).
+#                   Format: i.particle rx ry weight
+#
+#   "integrals.per.turn" overlap integrals per turn (averaged over particles).
+#                        Format: step ip ip.kicker.x ip.kicker.y turn integral
+#
+#   "avr.xy.per.turn" average kicked bunch center per turn (averaged over
+#                     particles)
+#                     Format: step ip ip.kicker.x ip.kicker.y turn average.x
+#                     average.y
+#
+
+#   "integrals.per.particle" overlap integrals per particle, per phase
+#                            (averaged over turns in the given phase),
+#                            assuming that the kicked bunch is squashed to
+#                            this particle, ie. the bunch density is a
+#                            delta-function at its position.
+#                            Format: step ip phase i.particle integral
+#
+#   "avr.xy.per.particle"   average kicked bunch center per particle, per phase
+#                           as above.
+#                           Format: step ip phase i.particle avr.x avr.y
+#
+#   "points"  the traced points of the kicked bunch after accelerator turn "i",
+#             this file might be very long.
+#             Format: step ip ip.kicker.x ip.kicker.y turn i.particle 
+#             X (-X') Y (-Y')
+#
+# In addition, "summary.txt" file will always be printed out regardless of the
+# settings. It will contain the main results including the overlap integrals
+# and the corresponding beam-beam corrections.  The final values in
+# "summary.txt" are calculated from "integrals.per.particle" (and the estimation
+# of the numerical no-beam-beam integral error is calculated from
+# "integrals.per.turn", but only if this option is selected).
+#
+# output.1 = integrals.per.turn avr.xy.per.turn integrals.per.particle avr.xy.per.particle points
+# output.2 = integrals.per.turn avr.xy.per.turn integrals.per.particle avr.xy.per.particle points
+# output.3 = integrals.per.turn avr.xy.per.turn integrals.per.particle avr.xy.per.particle points
+# output.4 = integrals.per.turn avr.xy.per.turn integrals.per.particle avr.xy.per.particle points
+# 
+
+# Storage of the traced particle positions (if the output option "points"
+# above is specified) after every accelerator turn might require too much disk
+# space. Instead, one can "select.one.turn.out.of" N turns.  Eg. if this
+# parameter is 1set to 00, only the positions after i.turn = 99, 199, 299, ...
+# (counting from zero) will be stored. If "points" option is not requested in
+# "output", "select.one.turn.out.of" has no effect.
+#
+select.one.turn.out.of = 1000
+
+# By default all output files and also the copy of the configuration file will
+# be stored in the subdirectory with the name obtained by dropping .txt from
+# the end of the configuration file name, like beam_beam_1.txt ->
+# beam_beam_1/.
+#
+# One can overwrite this rule by giving an explicit directory name (relative
+# to the current directory or absolute) as "output.directory" parameter
+# below. A fresh subdirectory with this name will be created. If it already
+# exists, the program will terminate without overwriting anything.
+#
+# output.directory = multi_ip_example
+
