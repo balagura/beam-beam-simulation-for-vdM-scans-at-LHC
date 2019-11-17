@@ -12,33 +12,37 @@ using namespace std;
 
 // -------------------- Output Data classes --------------------
 //
-// Integrals accumulate overlap integrals per turn
+// Integrals_Per_Turn accumulate overlap integrals per turn
 //
 
-void Integrals::resize(const N& n) { resize(n.turns()); }
-void Integrals::resize(int N_turns) {
-  atomic_integ = unique_ptr<atomic<long long int>[] >(new atomic<long long int>[N_turns]);
+void Integrals_Per_Turn::resize(const N& n) { resize(n.turns()); }
+void Integrals_Per_Turn::resize(int N_turns) {
+  if (empty()) {
+    atomic_integ = unique_ptr<atomic<long long int>[] >(new atomic<long long int>[N_turns]);
+    double_integ.resize(N_turns);
+  }
+  double_converted = false;
   for (int i=0; i<N_turns; ++i) {
-    // contrary to other vectors, atomic vectors in current C++ are
-    // not initialized by zeros:
+    // side note in case one wants to construct vector<atomic>: contrary to other vectors,
+    // atomic vectors in current C++ are not initialized by zeros:
     // http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2018/p0883r0.pdf
+    // Here, array created by new() is used instead, so initialization by
+    // zeros is anyway necessary
     atomic_integ[i].store(0);
   }
-  size = N_turns;
 }
-bool Integrals::empty() { return atomic_integ == nullptr; }
-void Integrals::add(int i_turn, double add) {
+bool Integrals_Per_Turn::empty() { return double_integ.empty(); }
+void Integrals_Per_Turn::add(int i_turn, double add) {
   atomic_integ[i_turn] += (long long int)(add * LLONG_MAX);
 }
-const vector<double>& Integrals::integ() {
-  if (double_integ.empty()) {
+const vector<double>& Integrals_Per_Turn::integ() {
+  if (!double_converted) {
     // transform atomic long long int's to double's
-    double_integ.resize(size);
-    for (int i=0; i<size; ++i) double_integ[i] = double(atomic_integ[i]) / LLONG_MAX;
+    for (int i=0; i<double_integ.size(); ++i) double_integ[i] = double(atomic_integ[i]) / LLONG_MAX;
   }
   return double_integ;
 }
-void Integrals::write(ostream& os, const string& prefix) {
+void Integrals_Per_Turn::write(ostream& os, const string& prefix) {
   const vector<double>& v = integ();
   for (size_t i_turn = 0; i_turn < v.size(); ++i_turn) {
     os << prefix << " "
@@ -48,20 +52,22 @@ void Integrals::write(ostream& os, const string& prefix) {
 }
 
 //
-// Avr_Z - accumulate x+iy complex coordinate of the kicked bunch center-of-mass
-void Avr_Z::resize(const N& n) { resize(n.turns()); }
-void Avr_Z::resize(int N_turns) {
-  atomic_avr_x = unique_ptr<atomic<long long int>[] >(new atomic<long long int>[N_turns]);
-  atomic_avr_y = unique_ptr<atomic<long long int>[] >(new atomic<long long int>[N_turns]);
+// Avr_XY_Per_Turn - accumulate x+iy complex coordinate of the kicked bunch center-of-mass
+void Avr_XY_Per_Turn::resize(const N& n) { resize(n.turns()); }
+void Avr_XY_Per_Turn::resize(int N_turns) {
+  if (empty()) {
+    atomic_avr_x = unique_ptr<atomic<long long int>[] >(new atomic<long long int>[N_turns]);
+    atomic_avr_y = unique_ptr<atomic<long long int>[] >(new atomic<long long int>[N_turns]);
+    size = N_turns;
+  }
   for (size_t i=0; i<N_turns; ++i) {
     atomic_avr_x[i].store(0);
     atomic_avr_y[i].store(0);
   }
-  size = N_turns;
 }
-bool Avr_Z::empty() { return size == 0; }
+bool Avr_XY_Per_Turn::empty() { return size == 0; }
 //
-void Avr_Z::init(double max_xy_radius, int n_points) {
+void Avr_XY_Per_Turn::init(double max_xy_radius, int n_points) {
   atomic_avr_xy_converter = LLONG_MAX / max(max_xy_radius, 1.) / 100 / n_points;
   // As the maximal x * w[i], y * w[i] weighted particle's coordinate at a
   // given turn take the maximal initially simulated radius (note, w[i]<1)
@@ -74,57 +80,61 @@ void Avr_Z::init(double max_xy_radius, int n_points) {
   // n coordinates) * (LLONG_MAX / max_xy_radius / 100 / n_points) <
   // LLONG_MAX. If max_xy_radius < 1 - set it to 1.
 }
-void Avr_Z::add(int i_turn, complex<double> add) {
+void Avr_XY_Per_Turn::add(int i_turn, complex<double> add) {
   atomic_avr_x[i_turn] += (long long int)(real(add) * atomic_avr_xy_converter);
   atomic_avr_y[i_turn] += (long long int)(imag(add) * atomic_avr_xy_converter);
 }
-void Avr_Z::write(ostream& os, const string& prefix) {
+void Avr_XY_Per_Turn::write(ostream& os, const string& prefix) {
   for (size_t i_turn = 0; i_turn < size; ++i_turn) {
     // transform atomic long long int's to double's
     complex<double> avr_z(atomic_avr_x[i_turn] / atomic_avr_xy_converter,
 			  atomic_avr_y[i_turn] / atomic_avr_xy_converter);
     os << prefix << " "
        << i_turn << " "
-       << avr_z << "\n";
+       << real(avr_z) << " " << imag(avr_z) << '\n';
   }
 }
 
-// Points store raw 4D coordinates for selected turns in
-// Points[turn][circle][0/1 for x/y]
+// Store raw 4D coordinates for selected turns in
+// Points[turn][particle][0/1 for x/y]
 //
 // This vector will be filled by all threads in parallel and when all finish,
 // will be written to file. Unfortunately, direct writing to the same file by
 // many threads would block them, this dictates storing large v_points in
 // memory.
-// Points = vector<vector<array<complex<double>, 2> > >  [turn][circle][0/1 for x/y]
+// Points = vector<vector<array<complex<double>, 2> > >  [turn][particle][0/1 for x/y]
 void Points::resize(const N& n) { resize(n.turns_stored(), n.points(), n.select_turns()); }
 void Points::resize(int N_turns_stored,
-		    int N_circles,
+		    int N_particles,
 		    int N_selected_turns) {
+  // no need to initialize, resize() is sufficient
   vector<vector<array<complex<double>, 2> > >::resize(N_turns_stored,
-						      vector<array<complex<double>, 2> >(N_circles));
+						      vector<array<complex<double>, 2> >(N_particles));
   n_selected_turns = N_selected_turns;
 }
-void Points::add(int turn, int circle, complex<double> xZ, complex<double> yZ) {
-  array<complex<double>, 2 >& a = (*this)[turn][circle];
+void Points::add(int turn, int particle, complex<double> xZ, complex<double> yZ) {
+  array<complex<double>, 2 >& a = (*this)[turn][particle];
   a[0] = xZ;
   a[1] = yZ;
 }
 void Points::write(ostream& os, const string& prefix) {
   for (int turn = 0; turn < size(); ++turn) {
-    for (int circle = 0; circle < (*this)[turn].size(); ++circle) {
-      array<complex<double>, 2 >& a = (*this)[turn][circle];
+    for (int particle = 0; particle < (*this)[turn].size(); ++particle) {
+      array<complex<double>, 2 >& a = (*this)[turn][particle];
       os << prefix << " "
-	 << n_selected_turns * (turn+1) << " "
-	 << circle << " "
-	 << a[0] << " "
-	 << a[1] << '\n';
+	 << n_selected_turns * (turn+1) - 1 << " "
+	 << particle << " "
+	// since the complex coordinated eg. in X-X' plane is defined as zX =
+	// X - iX', ie. with the minus sign, to print out X' one needs to
+	// invert the sign of imag(zX):	
+	 << real(a[0]) << " " << -imag(a[0]) << " "
+	 << real(a[1]) << " " << -imag(a[1]) << "\n";
     }
   }
 }
 
 Outputs::Outputs(const N& n, Config& c, string output_dir,
-		 double max_xy_radius) { // for double <-> llong int converter in Avr_Z
+		 double max_xy_radius) { // for double <-> llong int converter in Avr_XY_Per_Turn
   map<string, pair<vector<int>, bool> > selected;
   // selected[name] = (ips, boolean), boolean should be then set to true if
   // "name" coincides with one of output Data config_name()'s, otherwise
@@ -163,6 +173,7 @@ Outputs::Outputs(const N& n, Config& c, string output_dir,
 	       string file_name = x.config_name();
 	       replace(file_name.begin(), file_name.end(), '.', '_');
 	       x.file.open((output_dir + "/" + file_name + ".txt.gz").c_str());
+	       x.file << scientific; // change to scientific format for doubles
 	     }
 	   };
   apply([&f](auto& ... x) { (..., f(x)); }, *((Outputs_tuple*)this));
@@ -173,18 +184,23 @@ Outputs::Outputs(const N& n, Config& c, string output_dir,
       exit(1);
     }
   }
-  // Avr_Z, unfortunately, needs a special initialization of
+  // Avr_XY_Per_Turn, unfortunately, needs a special initialization of
   // double<->atomic<llong int> converter
-  for (int ip=0; ip<n.ip(); ++ip) get<Avr_Z>(ip).init(max_xy_radius, n.points()); // select 
+  for (int ip=0; ip<n.ip(); ++ip) get<Avr_XY_Per_Turn>(ip).init(max_xy_radius, n.points());
 }
-void Outputs::write(int step, const vector<complex<double> >& z_kicker) {
-  auto f = [&step, &z_kicker](auto&& x) {
+void Outputs::reset(const N& n) { // for double <-> llong int converter in Avr_XY_Per_Turn
+  auto f = [&n](auto&& x) {
+	     for (int ip=0; ip<n.ip(); ++ip)
+	       if (x.data[ip].write_it || x.always_fill()) x.data[ip].resize(n);
+	   };
+  apply([&f](auto& ... x) { (..., f(x)); }, *((Outputs_tuple*)this));
+}
+void Outputs::write(int step) {
+  auto f = [&step](auto&& x) {
 	     for(size_t ip=0; ip<x.data.size(); ++ip) {
 	       if (x.data[ip].write_it) {
 		 string prefix =
-		   to_string(step) + " " + to_string(ip) + " " +
-		   to_string(real(z_kicker[ip])) + " " +
-		   to_string(imag(z_kicker[ip])) + " ";
+		   to_string(step) + " " + to_string(ip) + " ";
 		 x.data[ip].write(x.file, prefix);
 	       }
 	     }
