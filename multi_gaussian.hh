@@ -37,7 +37,7 @@ struct Mutli_XY_Gaussian_bunches {
   // - one less, then the last weight is complemented to the total weight of
   //  1, or
   // - absent in a single Gaussian case when "sigmas" has only one element. In
-  // - this case the weight is set to 1.
+  //   this case the weight is set to 1.
   //
   // "n_sig_cut" will be explained below
   //
