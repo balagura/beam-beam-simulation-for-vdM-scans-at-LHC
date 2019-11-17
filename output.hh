@@ -20,19 +20,19 @@ using namespace std;
 
 // -------------------- Output Data classes --------------------
 //
-// Integrals accumulate overlap integrals per turn
+// Integrals_Per_Turn accumulate overlap integrals per turn
 //
-struct Integrals {
+struct Integrals_Per_Turn {
   void resize(const N& n);
   void resize(int N_turns);
   bool empty();
   void add(int i_turn, double add);
   const vector<double>& integ();
   void write(ostream& os, const string& prefix);
-  static string config_name() { return "integrals"; }
-  Integrals() : size(0) {}
+  static string config_name() { return "integrals.per.turn"; }
 protected:
   vector<double> double_integ;
+  bool double_converted;
   // Unfortunately, at the moment g++ 8.3 does not support atomic<double> +=
   // operations. Therefore, the double accumulators are expressed via
   // atomic<long long int> (by converting double's to long long int's and back). This
@@ -42,7 +42,6 @@ protected:
   // atomics do not have a copy constructor. So, dynamic array created by new()
   // is used instead:
   unique_ptr<atomic<long long int>[] > atomic_integ;
-  int size;
   // To not loose precision in conversions double<->long long int, the added
   // doubles are multiplied by a large double constant before converting to
   // long long int. Then, when all threads finish, they are divided by the same
@@ -56,8 +55,8 @@ protected:
 };
 
 //
-// Avr_Z - accumulate x+iy complex coordinate of the kicked bunch center-of-mass
-struct Avr_Z {
+// Avr_XY_Per_Turn - accumulate x+iy complex coordinate of the kicked bunch center-of-mass
+struct Avr_XY_Per_Turn {
   void resize(const N& n);
   void resize(int N_turns);
   bool empty();
@@ -65,8 +64,8 @@ struct Avr_Z {
   void init(double max_xy_radius, int n_points); // sets atomic_avr_xy_converter
   void add(int i_turn, complex<double> add);
   void write(ostream& os, const string& prefix);
-  static string config_name() { return "centers"; }
-  Avr_Z() : size(0), atomic_avr_xy_converter(0) {}
+  static string config_name() { return "avr.xy.per.turn"; }
+  Avr_XY_Per_Turn() : size(0), atomic_avr_xy_converter(0) {}
 protected:
   unique_ptr<atomic<long long int>[]> atomic_avr_x, atomic_avr_y;
   int size;
@@ -74,45 +73,45 @@ protected:
 };
 
 //
-// Integrals_Per_Circle and Avr_Z_Per_Circle - overlap integrals and average
+// Integrals_per_particle and Avr_XY_Per_Turn_Per_Particle - overlap integrals and average
 // x+iy coordinates accumulated by one macroparticle during groups of many
 // turns (NO_BB, ADIABATIC, STABILIZATION, BB). Ie. the kicked bunch density
 // is represented in this case by a delta-function concentrated at only one
 // particle which makes, however, many betatron oscillations (many turns).
 //
 template <class T>
-// T = double for Integrals_Per_Circle, complex<double> for Avr_Z_Per_Circle
-struct Per_Circle_Base : protected array<vector<T>, N::PHASES> { // [phase][circle]
+// T = double for Integrals_Per_Particle, complex<double> for Avr_XY_Per_Turn_Per_Particle
+struct Per_Particle_Base : protected array<vector<T>, N::PHASES> { // [phase][particle]
   void resize(const N& n);
-  void resize(int N_circles);
+  void resize(int N_particles);
   bool empty();
-  void add(int phase, int circle, T add);
-  void normalize_by_n_turns(int N_turns, int phase, int circle); // parallelized, so per circle
-  array<T, N::PHASES> weighted_average(const vector<double>& circle_weights);
+  void add(int phase, int particle, T add);
+  void normalize_by_n_turns(int N_turns, int phase, int particle); // parallelized, so per particle
+  array<T, N::PHASES> weighted_average(const vector<double>& particle_weights);
   void write(ostream& os, const string& prefix);
   static string config_name();
 };
-struct Integrals_Per_Circle : public Per_Circle_Base<double> {
-  static string config_name() { return "integrals.per.circle"; }
+struct Integrals_Per_Particle : public Per_Particle_Base<double> {
+  static string config_name() { return "integrals.per.particle"; }
 };
-struct Avr_Z_Per_Circle : public Per_Circle_Base<complex<double> > {
-  static string config_name() { return "centers.per.circle"; }
+struct Avr_XY_Per_Turn_Per_Particle : public Per_Particle_Base<complex<double> > {
+  static string config_name() { return "avr.xy.per.particle"; }
 };
 
 // Points store raw 4D coordinates for selected turns in
-// Points[turn][circle][0/1 for x/y]
+// Points[turn][particle][0/1 for x/y]
 //
 // This vector will be filled by all threads in parallel and when all finish,
 // will be written to file. Unfortunately, direct writing to the same file by
 // many threads would block them, this dictates storing large v_points in
 // memory.
-struct Points : protected vector<vector<array<complex<double>, 2> > > { // [turn][circle][0/1 for x/y]
+struct Points : protected vector<vector<array<complex<double>, 2> > > { // [turn][particle][0/1 for x/y]
   void resize(const N& n);
   void resize(int N_turns_stored,
-	      int N_circles,
+	      int N_particles,
 	      int N_selected_turns);
   using vector<vector<array<complex<double>, 2> > >::empty;
-  void add(int turn, int circle, complex<double> xZ, complex<double> yZ);
+  void add(int turn, int particle, complex<double> xZ, complex<double> yZ);
   void write(ostream& os, const string& prefix);
   static string config_name() { return "points"; }
 protected:
@@ -124,7 +123,7 @@ protected:
 // and add two boolean flags: whether the corresponding data should be written
 // out (bool write_i, per interaction point) and, if not, should it still be
 // processed (bool always_fill). The latter is intended for
-// Integrals_Per_Circle class which is used to calculate the final beam-beam
+// Integrals_Per_Particle class which is used to calculate the final beam-beam
 // corrections and, therefore, should be processed in any case.
 //
 template<class Data>
@@ -138,8 +137,8 @@ struct Output {
   static bool always_fill() { return false; }
   static string config_name() { return Data::config_name(); }
 };
-// partial specialization for Integrals_Per_Circle class
-template<> inline bool Output<Integrals_Per_Circle>::always_fill() { return true; }
+// partial specialization for Integrals_Per_Particle class
+template<> inline bool Output<Integrals_Per_Particle>::always_fill() { return true; }
 
 //
 // Main class: std::tuple<...> of everything above.
@@ -170,10 +169,10 @@ template<> inline bool Output<Integrals_Per_Circle>::always_fill() { return true
 // algorithms one needs to access the structures in the tuple individually
 // (knowing its type). They can be done using a helper member function like
 //
-// get<Integrals_Per_Circle>(ip)
+// get<Integrals_Per_Particle>(ip)
 //
-// It returns the data of Integrals_Per_Circle type for the interaction point
-// "ip" (counting from zero). Integrals_Per_Circle should be a unique class
+// It returns the data of Integrals_Per_Particle type for the interaction point
+// "ip" (counting from zero). Integrals_Per_Particle should be a unique class
 // name in the tuple (otherwise, if the tuple contains two structures of the
 // same type, the compiler will produce an error, see the documentation on
 // std::get(std::tuple) which is used internally).
@@ -181,20 +180,21 @@ template<> inline bool Output<Integrals_Per_Circle>::always_fill() { return true
 // To check whether the particular class and the corresponding algorithm has
 // been chosen in the configuration, one can use
 //
-// is_active<Integrals_Per_Circles>(ip)
+// is_active<Integrals_Per_Particles>(ip)
 //
 // "ip" is needed here since the algorithms are configurable per interaction
 // point.
 //
-typedef tuple<Output<Integrals>,
-	      Output<Avr_Z>,
-	      Output<Integrals_Per_Circle>,
-	      Output<Avr_Z_Per_Circle>,
+typedef tuple<Output<Integrals_Per_Turn>,
+	      Output<Avr_XY_Per_Turn>,
+	      Output<Integrals_Per_Particle>,
+	      Output<Avr_XY_Per_Turn_Per_Particle>,
 	      Output<Points> > Outputs_tuple;
 struct Outputs : public Outputs_tuple {
   Outputs(const N& n, Config& c, string output_dir,
-	  double max_xy_radius); // for double <-> llong int converter in Avr_Z
-  void write(int step, const vector<complex<double> >& z_kicker);
+	  double max_xy_radius); // for double <-> llong int converter in Avr_XY_Per_Turn
+  void reset(const N& n);
+  void write(int step);
   // access to tuple individual components
   template<class T> T&   get      (int ip) { return std::get<Output<T> >(*this).data[ip]; }
   // should we process the data of type "T"?
@@ -203,44 +203,55 @@ struct Outputs : public Outputs_tuple {
 
 // ------------------------------------------------------------
 //
-// Per_Circle_Base<T> = array<vector<T>, N::PHASES>  [phase][circle]
+// Per_Particle_Base<T> = array<vector<T>, N::PHASES>  [phase][particle]
 //
 template <class T>
-void Per_Circle_Base<T>::resize(const N& n) { resize(n.points()); }
+void Per_Particle_Base<T>::resize(const N& n) { resize(n.points()); }
 template <class T>
-void Per_Circle_Base<T>::resize(int N_circles) {
-  for (int phase=0; phase<N::PHASES; ++phase) (*this)[phase].resize(N_circles);
+void Per_Particle_Base<T>::resize(int N_particles) {
+  for (int phase=0; phase<N::PHASES; ++phase) (*this)[phase].assign(N_particles, 0.); // 0+i0 for complex
 }
 template <class T>
-bool Per_Circle_Base<T>::empty() { return (*this)[0].empty(); }
+bool Per_Particle_Base<T>::empty() { return (*this)[0].empty(); }
 template <class T>
 // initialized by zeros as any vector of doubles
-void Per_Circle_Base<T>::add(int phase, int circle, T add) {
-  (*this)[phase][circle] += add;
+void Per_Particle_Base<T>::add(int phase, int particle, T add) {
+  (*this)[phase][particle] += add;
 }
 template <class T>
-void Per_Circle_Base<T>::normalize_by_n_turns(int N_turns, int phase, int circle) { // parallelized, so per circle
-  (*this)[phase][circle] /= N_turns;
+void Per_Particle_Base<T>::normalize_by_n_turns(int N_turns, int phase, int particle) {
+  // parallelized, so per particle
+  (*this)[phase][particle] /= N_turns;
 }
 template <class T>
-array<T, N::PHASES> Per_Circle_Base<T>::weighted_average(const vector<double>& circle_weights) {
+array<T, N::PHASES> Per_Particle_Base<T>::weighted_average(const vector<double>& particle_weights) {
   array<T, N::PHASES> avr;
   fill(avr.begin(), avr.end(), 0.);
   for (int phase=0; phase<N::PHASES; ++phase) {
     const vector<T>& v = (*this)[phase];
     T& a = avr[phase];
-    for (size_t i=0; i<v.size(); ++i) a += circle_weights[i] * v[i];
+    for (size_t i=0; i<v.size(); ++i) a += particle_weights[i] * v[i];
   }
   return avr;
 }
+
+// operator<<(ostream&, complex<double>) is already overloaded in C++ standard
+// and prints (real,imag) instead of "real imag" needed here. Use "dump"
+// below instead:
+inline void dump(ostream& os, double x)          { os << x; }
+inline void dump(ostream& os, complex<double> x) { os << real(x) << " " << imag(x); }
+inline bool isnan(complex<double> x) { return isnan(real(x)) || isnan(imag(x)); }
+//
 template <class T>
-void Per_Circle_Base<T>::write(ostream& os, const string& prefix) {
+void Per_Particle_Base<T>::write(ostream& os, const string& prefix) {
   for (int phase=0; phase<N::PHASES; ++phase) {
     for (size_t i = 0; i < (*this)[phase].size(); ++i) {
-      os << prefix << " "
-	 << phase << " "
-	 << i << " "
-	 << (*this)[phase][i] << '\n';
+      T x = (*this)[phase][i];
+      if (!isnan(x)) { // if in some phase N_turn=0, normalization to such N_turns gives nan
+	os << prefix << " " << phase << " "  << i << " ";
+	dump(os, x);
+	os << '\n';
+      }
     }
   }
 }
