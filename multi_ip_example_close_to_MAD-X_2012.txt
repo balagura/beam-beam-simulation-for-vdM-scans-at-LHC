@@ -310,25 +310,27 @@ kick.model = precise
 #                            Output
 #
 #----------------------------------------------------------------------
-# "output.1" ("output.2" ...) parameter below controls what should be the
-# output of the simulation per IP. It is a white-space separated list of
-# options below. For every option XXXX.XXXX one compressed file will be
-# generated under the name "XXXX_XXXX.txt.gz".
+# "output" and "output.1" ("output.2" ...) parameters below control what
+# should be the output of the simulation. It is a white-space separated list
+# of options. For every option XXXX.XXXX one compressed file will be generated
+# under the name "XXXX_XXXX.txt.gz".
 #
-# "output" options:
+# "output" is for the kicked bunch and can contain only one option:
 #
 #   "rx.ry.weights" for every simulated particle: its initial rX and rY radii
-#                   (in X,X' and Y,Y' phase spaces) and their "weights" (the
+#                   (in X,X' and Y,Y' phase spaces) and its "weight" (the
 #                   central points have more weight).
 #                   Format: i.particle rx ry weight
 #
+# "output.1", "output.2" ... are for the kickers at IP 1, 2 ... . They can have
+# several options:
+#
 #   "integrals.per.turn" overlap integrals per turn (averaged over particles).
-#                        Format: step ip ip.kicker.x ip.kicker.y turn integral
+#                        Format: step ip ip.kicker.x ip.kicker.y i.turn integral
 #
 #   "avr.xy.per.turn" average kicked bunch center per turn (averaged over
 #                     particles)
-#                     Format: step ip ip.kicker.x ip.kicker.y turn average.x
-#                     average.y
+#                     Format: step ip i.turn average.x average.y
 #
 
 #   "integrals.per.particle" overlap integrals per particle, per phase
@@ -342,17 +344,32 @@ kick.model = precise
 #                           as above.
 #                           Format: step ip phase i.particle avr.x avr.y
 #
-#   "points"  the traced points of the kicked bunch after accelerator turn "i",
-#             this file might be very long.
-#             Format: step ip ip.kicker.x ip.kicker.y turn i.particle 
-#             X (-X') Y (-Y')
+
+#   "points"  the traced positions of the kicked bunch particles after
+#             accelerator "i.turn", note, this file might be very long.
+#             Format: step ip i.turn i.particle X X' Y Y'
 #
-# In addition, "summary.txt" file will always be printed out regardless of the
-# settings. It will contain the main results including the overlap integrals
-# and the corresponding beam-beam corrections.  The final values in
-# "summary.txt" are calculated from "integrals.per.particle" (and the estimation
-# of the numerical no-beam-beam integral error is calculated from
-# "integrals.per.turn", but only if this option is selected).
+# The integers i.turn and i.particle are counted from zero.
+#
+# In addition, the files "kicker_positions.txt" and "summary.txt" are always
+# printed out regardless of the settings.
+#
+#     The first, "kicker_positions.txt", links the "step" number with the
+#     kicker coordinates. Namely, it contains the set coordinates of the
+#     kicker bunch centers at all IPs with respect to the kicked bunch center.
+#     Format: step ip x y
+#
+#     The second file, "summary.txt" contains the main results of the
+#     simulation including the overlap integrals and the corresponding
+#     beam-beam corrections.
+#     Format: step IP (beam-beam/no beam-beam luminosity correction)
+#     (analytic, numeric no beam-beam overlap integrals, their ratio and its error;
+#     note, error = -9999 if "integrals.per.turn" option is not selected in "output")
+#     (X,Y average shift of the kicked bunch due to beam-beam interactions in all IPs
+#     - only if "centers.per.particle" is requested in "output")
+#     (the same shift analytically calculated but from beam-beam in this IP only)
+#
+# output = rx.ry.weights
 #
 # output.1 = integrals.per.turn avr.xy.per.turn integrals.per.particle avr.xy.per.particle points
 # output.2 = integrals.per.turn avr.xy.per.turn integrals.per.particle avr.xy.per.particle points
@@ -363,9 +380,9 @@ kick.model = precise
 # Storage of the traced particle positions (if the output option "points"
 # above is specified) after every accelerator turn might require too much disk
 # space. Instead, one can "select.one.turn.out.of" N turns.  Eg. if this
-# parameter is 1set to 00, only the positions after i.turn = 99, 199, 299, ...
-# (counting from zero) will be stored. If "points" option is not requested in
-# "output", "select.one.turn.out.of" has no effect.
+# parameter is set to 1000, only the positions after i.turn = 999, 1999, 2999,
+# ...  (counting from zero) will be stored. If "points" option is not
+# requested in "output", "select.one.turn.out.of" has no effect.
 #
 select.one.turn.out.of = 1000
 
