@@ -29,19 +29,28 @@ N.IP = 4
 # The value of the beta-function at the simulated interaction points
 # (beta-star), separately along X and Y, in meters.
 #
-# Twice smaller beta* at last IP is compensated by twice larger number of
-# particles and, therefore, twice larger beam-beam kick. Note, only the
-# product of the beta* value and the number of particles matters, so the
-# last IP should be identical to the others.
-#
-kicked.x.beta = 1.5 1.5 1.5 0.75
-kicked.y.beta = 1.5 1.5 1.5 0.75
+kicked.x.beta = 1.5 1.5 1.5 1.5
+kicked.y.beta = 1.5 1.5 1.5 1.5
 
 # Number of particles in the kickers
 #
-N.kicker.particles = 8.5e10 8.5e10 8.5e10 17e10
+N.kicker.particles = 8.5e10 8.5e10 8.5e10 8.5e10
 
-# kicked bunch Gaussian sigmas and weights in X and Y, in um
+# kicked bunch Gaussian sigmas and weights in X and Y, in um, at the
+# interaction point "kicked.ip".
+#
+# The counting of "kicked.ip" starts from one. The sigmas at other IPs scale
+# as sigma(kicked.ip) * sqrt(beta(ip) / beta(kicked.ip).
+#
+# Note, for a kicked bunch the multi-Gaussian sigmas are defined at
+# "kicked.ip" and then extrapolated to the IP of the beam-beam interaction
+# using the beta-function values. Contrary to that, the kicker sigmas should
+# be given directly at the IP of the interaction, without any
+# extrapolation. In other words, such kicker sigmas, in general, can differ
+# from sigmas at "kicked.ip".
+#
+kicked.ip = 1
+
 #
 # Here, in X the distribution is double Gaussian but with the same widths, in
 # Y - single Gaussian
@@ -172,14 +181,14 @@ kicker.y.phase.advance =  59.32 59.32 59.32 59.32
 #
 # The bunch density factorizes in X and Y. Its projections to X and Y are two
 # multi-Gaussian distributions.  Because of the circular motion in X-X' and
-# Y-Y' planes (where X',Y' denote the angular coordinates, eg. X' = dX/dZ *
-# beta), the projections to X' (Y') are identical to X (Y). So, eg. a single
-# Gaussian in X makes a two-dimensional Gaussian with equal sigmas in X-X'
-# plane, and a multi-Gaussian makes a multi two-dimensional Gaussian with the
-# same weights.
+# Y-Y' planes (where X',Y' denote the angular coordinates scaled by the
+# accelerator beta-function, eg. X' = dX/dZ * beta), the projections to X'
+# (Y') are identical to X (Y). So, eg. a single Gaussian in X makes a
+# two-dimensional Gaussian with equal sigmas in X-X' plane, and a
+# multi-Gaussian makes a multi two-dimensional Gaussian with the same weights.
 #
 # The four-dimensional bunch density is sampled in a two-dimensional rX-rY
-# grid of the radii in the X-X', Y-Y' planes.
+# grid of the radii in the X-X', Y-Y' planes at the first interaction point.
 #
 # Each grid side (rX or rY) extends from 0 to a maximal radius rX,Y_max. The
 # latter is chosen such that the circle with the radius rX_max (or rY_max)
@@ -318,9 +327,8 @@ kick.model = precise
 # "output" is for the kicked bunch and can contain only one option:
 #
 #   "rx.ry.weights" for every simulated particle: its initial rX and rY radii
-#                   (in X,X' and Y,Y' phase spaces) and its "weight" (the
-#                   central points have more weight).
-#                   Format: i.particle rx ry weight
+#                   (in X,X' and Y,Y' phase spaces) at ip and its "weight"
+#                   Format: i.particle ip rx ry weight
 #
 # "output.1", "output.2" ... are for the kickers at IP 1, 2 ... . They can have
 # several options:
