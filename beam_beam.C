@@ -36,6 +36,13 @@ struct Config_Mutli_XY_Gaussian_bunches : public Mutli_XY_Gaussian_bunches {
     Mutli_XY_Gaussian_bunches::reset_ip_number(n_ip);
     //
     double n_sig_cut = c.defined("N.sigma.cut") ? c("N.sigma.cut") : 5;
+    //
+    int kicked_ip = c("kicked.ip");
+    if (kicked_ip <= 0 || kicked_ip > n_ip) {
+      cerr << "\"kicked.ip\" is out of range (its counting starts from one)\n";
+      exit(1);
+     }
+    kicked_ip -= 1; // count from zero
     // accumulate beam separations:
     vector<array<vector<double>, 2> > positions(n_ip); // [ip][coor][step]
     for (size_t coor=0; coor<2; ++coor) {
@@ -81,10 +88,17 @@ struct Config_Mutli_XY_Gaussian_bunches : public Mutli_XY_Gaussian_bunches {
 						      deltaQ);
       }
       string s = string("kicked.") + "xy"[coor];
+      if (c.vd(s + ".beta").size() != n_ip) {
+	cerr << "Given number of " << "xy"[coor] << "-beta values (" << c.vd(s + ".beta").size()
+	     << ") is not equal to the number of IPs (" << n_ip << ")\n";
+	exit(1);
+      }
       vector<double> weights = c.defined(s + ".weight") ? c.vd(s + ".weight") : vector<double>();
-      Mutli_XY_Gaussian_bunches::reset_kicked_bunch(coor,
+      Mutli_XY_Gaussian_bunches::reset_kicked_bunch(kicked_ip,
+						    coor,
 						    c.vd(s + ".sig"),
 						    weights,
+						    c.vd(s + ".beta"),
 						    n_sig_cut);
     }
     Mutli_XY_Gaussian_bunches::reset_kicker_positions(positions);
@@ -153,22 +167,12 @@ int main(int argc, char** argv) {
 
   N n(c);
   Config_Mutli_XY_Gaussian_bunches bb(c, n.ip());
-  if (c.vd("kicked.x.beta").size() != n.ip()) {
-    cerr << "Given number of X-\"beta\" values (" << c.vd("beta").size()
-	 << ") is not equal to the number of IPs (" << n.ip() << ")\n";
-    return 1;
-  }
-  if (c.vd("kicked.y.beta").size() != n.ip()) {
-    cerr << "Given number of Y-\"beta\" values (" << c.vd("beta").size()
-	 << ") is not equal to the number of IPs (" << n.ip() << ")\n";
-    return 1;
-  }
   if (c.vd("N.kicker.particles").size() != n.ip()) {
     cerr << "Given number of \"N.kicker.particles\" values (" << c.vd("N.kicker.particles").size()
 	 << ") is not equal to the number of IPs (" << n.ip() << ")\n";
     return 1;
   }
-  vector<array<double, 2> > kick_const(n.ip());
+  vector<array<double, 2> > kick_const(n.ip()); // kick_const[ip][coor]
   {
     double alpha = 1. / 137.035;
     double hbar = 0.197327e-15; // in Gev * m
@@ -177,8 +181,8 @@ int main(int argc, char** argv) {
       2 * c("Z.kicked") * c("Z.kicker") * alpha * hbar / beta0 / c["p"] * 1e12; // in um^2
     for (int ip=0; ip<n.ip(); ++ip) {
       double n = c.vd("N.kicker.particles")[ip];
-      kick_const[ip][0] = factor * n * c.vd("kicked.x.beta")[ip];
-      kick_const[ip][1] = factor * n * c.vd("kicked.y.beta")[ip];
+      for (int coor=0; coor<2; ++coor)
+	kick_const[ip][coor] = factor * n * bb.accelerator_beta(ip, coor);
     }
   }
   enum {PRECISE, PRECISE_MINUS_AVERAGE, AVERAGE} kick_model = PRECISE;
@@ -192,45 +196,46 @@ int main(int argc, char** argv) {
       return 1;
     }
   }
-  // particle's weights, radii in X-X' and in Y-Y' (some of the particles
-  // will not be simulated, so size()'s == N_points_in_step <= N_ponts):
+  // particle's weights, radii in X-X' and in Y-Y' at ip=0, from where the
+  // simulation starts (some of the particles will not be simulated, so
+  // size()'s == N_points_in_step <= N_ponts):
   vector<double> rx, ry, w;
   {
     // sqrt(n.points_max()) will be used to sample intervals rX = [0...cut_x],
-    // rY = [0...cut_y], where cut_x,y were chosen to reproduce the efficiency
-    // of "N.sigma.cut" configuration cut for a single Gaussian bunch. Ie. the
-    // areas of the rejected multi-Gaussian tails == the area of a single
-    // Gaussian outside +/-N.sigma.cut.
+    // rY = [0...cut_y], where cut_x,y will be chosen to reproduce the
+    // efficiency of configuration "N.sigma.cut" for a single Gaussian
+    // bunch. Ie. the fraction of eg. X-X' 2D multi-Gaussian inside a circle
+    // with the radius cut_x will be equal to the fraction of 2D Gaussian
+    // inside +/-N.sigma.cut.
     //
     int N_sqrt = int(sqrt(n.points_max()));
     vector<double> rX_bins(N_sqrt), rY_bins(N_sqrt);
     double
-      binx = bb.r_cut().first  / N_sqrt,
-      biny = bb.r_cut().second / N_sqrt;
+      binx = bb.r_cut(0).first  / N_sqrt, // for ip=0, from where the simulation starts
+      biny = bb.r_cut(0).second / N_sqrt;
     for (int i=0; i<N_sqrt; ++i) {
       rX_bins[i] = (i + 0.5) * binx;
       rY_bins[i] = (i + 0.5) * biny;
     }
     // To reduce the number of simulated points and CPU, select only the
     // points from the ellipse inscribed inside the rectangle [0...cut_x] X
-    // [0...cut_y] in X and Y.
+    // [0...cut_y] in rX and rY.
     double w_sum = 0;
     for (int ix=0; ix<N_sqrt; ++ix) {
       for (int iy=0; iy<N_sqrt; ++iy) {
-	complex<double> z1(rX_bins[ix]/bb.r_cut().first,
-			   rY_bins[iy]/bb.r_cut().second);
+	complex<double> z1(rX_bins[ix]/bb.r_cut(0).first,
+			   rY_bins[iy]/bb.r_cut(0).second);
 	if (norm(z1) <=1 ) {
-	  double rho1 =
-	    bb.not_normalized_r_kicked_density(0, rX_bins[ix]) *
-	    bb.not_normalized_r_kicked_density(1, rY_bins[iy]);
+	  double rho1 = // for ip=0, from where the simulation will start
+	    bb.not_normalized_r_kicked_density(0, rX_bins[ix], 0) *
+	    bb.not_normalized_r_kicked_density(1, rY_bins[iy], 0);
 	  rx.push_back(rX_bins[ix]);
 	  ry.push_back(rY_bins[iy]);
 	  w.push_back(rho1);
 	  w_sum += rho1;
 	}
       }
-    }
-    // normalize w
+    } // normalize w:
     for_each(w.begin(), w.end(), [w_sum] (double& x) { x /= w_sum; });
   }
   n.points() = int(w.size());
@@ -238,11 +243,16 @@ int main(int argc, char** argv) {
     if (c.s("output") == "rx.ry.weights") {
       ogzstream os((output_dir + "/rx_ry_weights.txt.gz").c_str());
       os << scientific; // change to scientific format for doubles
-      for (size_t i = 0; i < n.points(); ++i) {
-	os << i << " "
-	   << rx[i] << " "
-	   << ry[i] << " "
-	   << w[i]<< '\n';
+      for (int ip = 0; ip < n.ip(); ++ip) {
+	double beta_scale_x =sqrt(bb.accelerator_beta(ip, 0) / bb.accelerator_beta(0, 0));
+	double beta_scale_y =sqrt(bb.accelerator_beta(ip, 1) / bb.accelerator_beta(0, 1));
+	for (size_t i = 0; i < n.points(); ++i) {
+	  os << i << " "
+	     << ip << " "
+	     << rx[i] * beta_scale_x << " "
+	     << ry[i] * beta_scale_y << " "
+	     << w[i]<< '\n';
+	}
       }
     } else {
       cerr << "Unrecognized output:" << c.s("output")
@@ -258,13 +268,35 @@ int main(int argc, char** argv) {
   output_kicker_positions << scientific;  // change to scientific format for doubles
   output_summary << scientific;
   //
-  Outputs output(n, c, output_dir,
-		 // find max in pair<double,double> returned by bb.r_cut()
-		 [](auto p) {return max(p.first, p.second); }(bb.r_cut()));
+  double max_xy_r = 0; // find max possible no beam-beam radius for atomic converter in output
+  for (int ip=0; ip<n.ip(); ++ip) {
+    auto p = bb.r_cut(ip);
+    max_xy_r = max(max_xy_r, max(p.first, p.second));
+  }
+  Outputs output(n, c, output_dir, max_xy_r);
+  //
+  // transportation to next IP:
+  //
+  // x or y oscillates with an amplitude emittance * sqrt(beta_x,y), emittance
+  // is conserved, so at next IP the x,y scale =
+  // this_x,y_scale * sqrt(next_beta_x,y / this_beta_x,y).
+  //
+  // Store sqrt(next_beta_x,y / this_beta_x,y) in a container:
+  //
+  vector<array<double, 2> > sqrt_beta_ratio_next_to_this(n.ip());
+  for (int ip=0; ip<n.ip(); ++ip) {
+    int ip_next = (ip==3) ? 0 : (ip+1);
+    for (int coor=0; coor<2; ++coor) {
+      sqrt_beta_ratio_next_to_this[ip][coor] = sqrt(bb.accelerator_beta(ip_next, coor) /
+						    bb.accelerator_beta(ip,      coor));
+    }
+  }
+  // Initial point amplitudes (rX, rY) were prepared for ip=0, so simulation
+  // loop should also start from ip=0
   //
   // main loop
   for (int step = 0; step < bb.kicker_positions(0,0).size(); ++step) {
-    vector<complex<double> > z2(bb.n_ip());
+    vector<complex<double> > z2(n.ip());
     for (size_t ip=0; ip<z2.size(); ++ip) {
       z2[ip] = complex<double>(bb.kicker_positions(ip, 0)[step],
 			       bb.kicker_positions(ip, 1)[step]);
@@ -275,7 +307,7 @@ int main(int argc, char** argv) {
       cout << z2[ip] << " ";
     }
     cout << "..." << flush;
-    // average kick when the first bunch is at -z2[ip] and the second is at
+    // average kick when the kicked bunch is at -z2[ip] and the kicker is at
     // (0,0):
     vector<complex<double> > kick_average(n.ip());
     for (int ip=0; ip<n.ip(); ++ip) {
@@ -283,7 +315,6 @@ int main(int argc, char** argv) {
       kick_average[ip] = complex<double>(kick_const[ip][0] * real(field),
 					 kick_const[ip][1] * imag(field));
     }
-    //
     vector<vector<array<double, 2> > >
       kick_adiabatic(n.ip(), vector<array<double, 2> >(n.turns(N::ADIABATIC)));
     vector<vector<complex<double> > >
@@ -296,15 +327,48 @@ int main(int argc, char** argv) {
       //                       to 1 for i_turn = n.turns(N::ADIABATIC)-1
       for (int ip=0; ip<n.ip(); ++ip) {
 	for (int coor=0; coor<2; ++coor) {
-	  kick_adiabatic        [ip][i_turn][coor] = kick_const  [ip][coor] * trans_w;
+	  kick_adiabatic[ip][i_turn][coor] = kick_const[ip][coor] * trans_w;
 	}
 	kick_average_adiabatic[ip][i_turn] = kick_average[ip] * trans_w;
       }
     }
+    // Phase 0: no beam-beam 
+    // Phase 1: adiabatic switch on
+    // Phase 2: stabilization
+    // Phase 3: nominal beam-beam
+    auto kick = [&bb,
+		 &kick_const, &kick_average, &kick_adiabatic, &kick_average_adiabatic,
+		 &kick_model](int ip,
+			      int phase,
+			      int phase_turn,
+			      complex<double> z1_minus_z2) -> complex<double>
+      {
+       if (phase == N::NO_BB) return 0;
+       array<double, 2> k_const;
+       complex<double> k_average;
+       if (phase == N::ADIABATIC) {
+	 k_const   = kick_adiabatic        [ip][phase_turn];
+	 k_average = kick_average_adiabatic[ip][phase_turn];
+       } else {
+	 k_const   = kick_const  [ip];
+	 k_average = kick_average[ip];
+       }
+       if (kick_model == PRECISE) {
+	 complex<double> field = bb.field(real(z1_minus_z2), imag(z1_minus_z2), ip);
+	 return complex<double>(k_const[0] * real(field),
+				k_const[1] * imag(field));
+       } else if (kick_model == AVERAGE) {
+	 return k_average;
+       } else { //  PRECISE_MINUS_AVERAGE: 
+	 complex<double> field = bb.field(real(z1_minus_z2), imag(z1_minus_z2), ip);
+	 return complex<double>(k_const[0] * real(field),
+				k_const[1] * imag(field)) - k_average;
+       }
+      };
     // prepare n.points() threads to run in parallel
     vector<thread> threads(n.points());
     auto loop = [&rx, &ry, &w, &bb, z2, step,
-		 &kick_const, &kick_average, &kick_adiabatic, &kick_average_adiabatic,
+		 &sqrt_beta_ratio_next_to_this, &kick,
 		 &n, &output,
 		 kick_model]
       (int i, double rnd1, double rnd2) {
@@ -313,120 +377,73 @@ int main(int argc, char** argv) {
 		  complex<double>
 		   xZ = rx[i] * exp(2i * M_PI * rnd1),
 		   yZ = ry[i] * exp(2i * M_PI * rnd2);
-		 //
-		 auto turn_and_kick =
-		   [&bb, kick_model, &z2](int ip,
-					  // either trainsitional or nominal:
-					  array<double, 2> k_const,
-					  complex<double> k_average,
-					  complex<double>& xZ, complex<double>& yZ) {
-		     complex<double> kick, z1_minus_z2 = complex<double>(real(xZ), real(yZ)) - z2[ip];
-		     if (kick_model == PRECISE) {
-		       complex<double> field = bb.field(real(z1_minus_z2), imag(z1_minus_z2), ip);
-		       kick = complex<double>(k_const[0] * real(field),
-					      k_const[1] * imag(field));
-		     } else if (kick_model == AVERAGE) {
-		       kick =  k_average;
-		     } else { //  PRECISE_MINUS_AVERAGE: 
-		       complex<double> field = bb.field(real(z1_minus_z2), imag(z1_minus_z2), ip);
-		       kick = complex<double>(k_const[0] * real(field),
-					      k_const[1] * imag(field)) - k_average;
-		     }
-		     // The momentum kick is subtracted below because of the minus sign in
-		     // the definition of eg. zX = X - iX'. The kick is added to X',
-		     // so that i*kick is subtracted from zX.
-		     xZ = (xZ - 1i * real( kick )) * bb.exp_2pi_i_deltaQ(ip, 0);
-		     yZ = (yZ - 1i * imag( kick )) * bb.exp_2pi_i_deltaQ(ip, 1);
-		   };
-		 //
-		 auto fill_output =
-		   [&w, &bb, &n, i, &z2,
-		    &output]
-		   (int ip, int i_turn, complex<double> xZ, complex<double> yZ,
-		    int phase)
-		   {
-		     // overlap integral is calculated as a sum of (2nd bunch profile
-		     // density * weight) over the sample of 1st bunch "particles".
-		     //
-		     complex<double> z1 = complex<double>(real(xZ), real(yZ));
-		     complex<double> z1_minus_z2 = z1 - z2[ip];
-		     double rho2 = bb.kicker_density(real(z1_minus_z2), imag(z1_minus_z2), ip);
-		     // Integrals_Per_Particle keeps integrals for bunches with
-		     // densities concentrated at one particle's point
-		     // (delta-function density), so weight = 1. They will be
-		     // reweighted with w[i] in the calculation of the final
-		     // overlap integral appearing in summary
-		     output.get<Integrals_Per_Particle>(ip).add(phase, i, rho2); // always filled
-		     if (output.is_active<Avr_XY_Per_Turn_Per_Particle>(ip)) {
-		       output.get<Avr_XY_Per_Turn_Per_Particle>(ip).add(phase, i, z1);
-		     }
-		     if (output.is_active<Integrals_Per_Turn>(ip)) {
-		       // Integrals_Per_Turn are reweighted immediately
-		       output.get<Integrals_Per_Turn>(ip).add(i_turn, rho2 * w[i]);
-		     }
-		     if (output.is_active<Avr_XY_Per_Turn>(ip)) {
-		       output.get<Avr_XY_Per_Turn>(ip).add(i_turn, z1 * w[i]);
-		     }
-		     if (output.is_active<Points>(ip) && (i_turn + 1) % n.select_turns() == 0) {
-		       // It is more convenient here to count from one,
-		       // eg. consider i_turn+1.  i_turn+1 runs in the range
-		       // 1...N_turns. Only multiples of n.select_turns() are
-		       // written out. Eg. if n.select_turns() > 1 and N_turns
-		       // is the multiple of n.select_turns(): the last i_turn
-		       // + 1 = N_turn is written, while the first i_turn + 1
-		       // = 1 - not.
-		       int j_turn = (i_turn + 1) / n.select_turns() - 1;
-		       // in other words: j_turn+1 = (i_turn+1) /
-		       // n.select_turns(), where i,j_turn + 1 correspond to
-		       // counting from one.  Last j_turn+1 =
-		       // N_turn/select_runs.
-		       output.get<Points>(ip).add(j_turn, i, xZ, yZ);
-		     }
-		   };
 		 int i_turn = 0;
-		 // Phase 0:
-		 // first N_turns_in_phase[0] turns without kick to measure the initial, possibly
-		 // biased, integral; then calculate how much the kick changes
-		 // it. Taking the ratio to the initialE_field   integral (instead of the exact
-		 // integral) should cancel the bias at least partially and improve
-		 // precision
-		 for (int phase_turn=0; phase_turn<n.turns(N::NO_BB); ++phase_turn, ++i_turn) {
-		   complex<double> z1( real( xZ ), real( yZ ));
-		   for (size_t ip=0; ip<n.ip(); ++ip) {
-		     xZ *= bb.exp_2pi_i_deltaQ(ip, 0); // kick = 0
-		     yZ *= bb.exp_2pi_i_deltaQ(ip, 1);
-		     // calculate and store integrals and points here, in the
-		     // end, after the propagation through the ring (and after
-		     // the beam-beam). The integral and the points (both of
-		     // which can be written out), therefore, correspond to each
-		     // other. One could do it before, then the last propagation
-		     // through the ring for i_turn = N_turn-1 could be
-		     // dropped. However, in this case the first integral+points
-		     // always corresponded to the case without beam-beam, even
-		     // if N_turns_in_phase[0]=0. So, for this reason and for simplicity the
-		     // above logic is chosen.
-		     fill_output(ip, i_turn, xZ, yZ, 0);
-		   }
-		 }
-		 // Phase 1: adiabatic switch on
-		 for (int phase_turn=0; phase_turn < n.turns(N::ADIABATIC); ++phase_turn, ++i_turn) {
-		   for (size_t ip=0; ip<n.ip(); ++ip) {
-		     turn_and_kick(ip,
-				   kick_adiabatic[ip][phase_turn],
-				   kick_average_adiabatic[ip][phase_turn],
-				   xZ, yZ);
-		     fill_output(ip, i_turn, xZ, yZ, 1);
-		   }
-		 }
-		 // Phase 2: stabilization and phase 3: nominal beam-beam
-		 for (int phase = N::STABILIZATION; phase < N::PHASES; ++phase) {
-		   for (int phase_turn=0; phase_turn < n.turns(phase); ++phase_turn, ++i_turn) {
+		 //
+		 for (int phase = 0; phase < N::PHASES; ++phase) {
+		   for (int phase_turn=0; phase_turn<n.turns(phase); ++phase_turn, ++i_turn) {
 		     for (size_t ip=0; ip<n.ip(); ++ip) {
-		       turn_and_kick(ip,
-				     kick_const[ip],
-				     kick_average[ip],
-				     xZ, yZ);
-		       fill_output(ip, i_turn, xZ, yZ, phase);
+		       { // kick + turn
+			 complex<double> z1 = complex<double>(real(xZ), real(yZ));
+			 complex<double> z1_minus_z2 = z1 - z2[ip];
+			 complex<double> k = kick(ip, phase, phase_turn, z1_minus_z2);
+			 // The momentum kick is subtracted below because of
+			 // the minus sign in the definition of eg. zX = X -
+			 // iX'. The kick is added to X', so that i*kick is
+			 // subtracted from zX.
+			 xZ = (xZ - 1i * real( k )) * bb.exp_2pi_i_deltaQ(ip, 0);
+			 yZ = (yZ - 1i * imag( k )) * bb.exp_2pi_i_deltaQ(ip, 1);
+		       }
+		       // calculate and store output here, in the end, after
+		       // the propagation through the ring (and after the
+		       // beam-beam). One could do it before, then the last
+		       // propagation through the ring could be
+		       // dropped. However, in this case the first output
+		       // always corresponded to the case without beam-beam,
+		       // even if N_turns for no beam-beam phase would be set
+		       // to 0. For this reason and for simplicity the above
+		       // logic is chosen.
+		       //
+		       // Overlap integral is calculated as a sum of (2nd bunch profile
+		       // density * weight) over the sample of 1st bunch "particles".
+		       //
+		       complex<double> z1 = complex<double>(real(xZ), real(yZ));
+		       complex<double> z1_minus_z2 = z1 - z2[ip];
+		       double rho2 = bb.kicker_density(real(z1_minus_z2), imag(z1_minus_z2), ip);
+		       // Integrals_Per_Particle keeps integrals for bunches with
+		       // densities concentrated at one particle's point
+		       // (delta-function density), so weight = 1. They will be
+		       // reweighted with w[i] in the calculation of the final
+		       // overlap integral appearing in summary
+		       output.get<Integrals_Per_Particle>(ip).add(phase, i, rho2); // always filled
+		       if (output.is_active<Avr_XY_Per_Turn_Per_Particle>(ip)) {
+			 output.get<Avr_XY_Per_Turn_Per_Particle>(ip).add(phase, i, z1);
+		       }
+		       if (output.is_active<Integrals_Per_Turn>(ip)) {
+			 // Integrals_Per_Turn are reweighted immediately
+			 output.get<Integrals_Per_Turn>(ip).add(i_turn, rho2 * w[i]);
+		       }
+		       if (output.is_active<Avr_XY_Per_Turn>(ip)) {
+			 output.get<Avr_XY_Per_Turn>(ip).add(i_turn, z1 * w[i]);
+		       }
+		       if (output.is_active<Points>(ip) && (i_turn + 1) % n.select_turns() == 0) {
+			 // It is more convenient here to count from one,
+			 // eg. consider i_turn+1. Then, it runs in the range
+			 // 1...N_turns. Only multiples of n.select_turns()
+			 // are written out. Eg. if n.select_turns() > 1 and
+			 // N_turns is the multiple of n.select_turns(): the
+			 // last i_turn + 1 = N_turn is written, while the
+			 // first i_turn + 1 = 1 - not.
+			 int j_turn = (i_turn + 1) / n.select_turns() - 1;
+			 // in other words: j_turn+1 = (i_turn+1) /
+			 // n.select_turns(), where i,j_turn + 1 correspond to
+			 // counting from one.  Last j_turn+1 =
+			 // N_turn/select_runs.
+			 output.get<Points>(ip).add(j_turn, i, xZ, yZ);
+		       }
+		       // scale to next IP according to 
+		       // sqrt(beta(next ip)/beta(this))
+		       xZ *= sqrt_beta_ratio_next_to_this[ip][0];
+		       yZ *= sqrt_beta_ratio_next_to_this[ip][1];
 		     }
 		   }
 		 }
@@ -436,9 +453,12 @@ int main(int argc, char** argv) {
 		 // circle). Normalize only by n.turns()
 		 for (size_t ip=0; ip<n.ip(); ++ip) {
 		   for (int phase = 0; phase < N::PHASES; ++phase) {
-		     output.get<Integrals_Per_Particle>(ip).normalize_by_n_turns(n.turns(phase), phase, i);
+		     int n_turns = n.turns(phase);
+		     auto& integ = output.get<Integrals_Per_Particle>(ip);
+		     integ.normalize_by_n_turns(n_turns, phase, i);
 		     if (output.is_active<Avr_XY_Per_Turn_Per_Particle>(ip)) {
-		       output.get<Avr_XY_Per_Turn_Per_Particle>(ip).normalize_by_n_turns(n.turns(phase), phase, i);
+		       auto& avr_xy = output.get<Avr_XY_Per_Turn_Per_Particle>(ip);
+		       avr_xy.normalize_by_n_turns(n_turns, phase, i);
 		     }
 		   }
 		 }
