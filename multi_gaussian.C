@@ -141,10 +141,25 @@ double Mutli_XY_Gaussian_bunches::Kicker_MultiG::density(double x) const {
   return prob;
 }
 //
-void Mutli_XY_Gaussian_bunches::reset_kicked_bunch(int coor, // 0 for x, 1 for y
-						   const vector<double>& sigmas,
+void Mutli_XY_Gaussian_bunches::reset_kicked_bunch(int ip, // Gaussian widths at different ip2 will
+						   // be calculated as
+						   // sigmas * sqrt(beta_at_ips(ip2)/beta_at_ips(ip))
+						   int coor, // 0 for x, 1 for y
+						   const vector<double>& sigmas, // at the given "ip"
 						   const vector<double>& weights,
+						   const vector<double>& beta_at_all_ips_for_given_coordinate,
 						   double n_sig_cut) {
+  if (ip<0 || ip>=beta_at_all_ips_for_given_coordinate.size()) {
+    cerr << "Given ip number of the kicked bunch (" << ip << ") is out of range of the given vector of beta*\n";
+    exit(1);
+  }
+  beta.resize(beta_at_all_ips_for_given_coordinate.size());
+  for (size_t ip=0; ip<beta.size(); ++ip)
+    beta[ip][coor] = beta_at_all_ips_for_given_coordinate[ip];
+  // rescale sigmas so that "kicked" bunch always corresponds to ip=0
+  vector<double> sig(sigmas);
+  for (auto& s: sig) s *= sqrt(beta_at_all_ips_for_given_coordinate[0] /
+			       beta_at_all_ips_for_given_coordinate[ip]);
   string err = kicked[coor].reset(sigmas, weights, n_sig_cut);
   if (err != "") {
     cerr << "Kicked bunch, " << "xy"[coor] << "-density: " << err << endl;
@@ -304,10 +319,17 @@ void Mutli_XY_Gaussian_bunches::reset_interpolators(int n_density_cells,
     }
   }
 }
-double Mutli_XY_Gaussian_bunches::not_normalized_r_kicked_density(int coor, double r) const {
+double Mutli_XY_Gaussian_bunches::not_normalized_r_kicked_density(int coor, double r, int ip) const {
+  // "kicked" is stored internally with sigmas corresponding to "ip"=0, rescale "r" also to ip=0:
+  r *= sqrt(beta[0][coor] / beta[ip][coor]);
   return kicked[coor].not_normalized_r_density(r);
 }
-pair<double, double> Mutli_XY_Gaussian_bunches::r_cut() const { return make_pair(kicked[0].cut, kicked[1].cut); }
+pair<double, double> Mutli_XY_Gaussian_bunches::r_cut(int ip) const {
+  // rescale from ip=0
+  return make_pair(sqrt(beta[ip][0] / beta[0][0]) * kicked[0].cut,
+		   sqrt(beta[ip][1] / beta[0][1]) * kicked[1].cut);
+}
+double Mutli_XY_Gaussian_bunches::accelerator_beta(int ip, int coor) { return beta[ip][coor]; }
 double Mutli_XY_Gaussian_bunches::kicker_density(double x, double y, int ip) const {
   const auto& k = kicker[ip];
   if (k[0].li_density == nullptr) {
@@ -369,13 +391,22 @@ Mutli_XY_Gaussian_bunches::max_and_average_interpolation_mismatches_relative_to_
 }
 complex<double> Mutli_XY_Gaussian_bunches::field_averaged_over_kicked_bunch(double x, double y, int ip) const {
   complex<double> E = 0;
-  const MultiG_SigSq &x1 = kicked[0], &y1 = kicked[1], &x2 = kicker[ip][0], &y2 = kicker[ip][1]; 
-  for (size_t ix1=0; ix1<x1.sig_sq.size(); ++ix1) {
-    for (size_t iy1=0; iy1<y1.sig_sq.size(); ++iy1) {
-      for (size_t ix2=0; ix2<x2.sig_sq.size(); ++ix2) {
-	for (size_t iy2=0; iy2<y2.sig_sq.size(); ++iy2) {
-	  double vdm_sigx = sqrt(x1.sig_sq[ix1] + x2.sig_sq[ix2]);
-	  double vdm_sigy = sqrt(y1.sig_sq[iy1] + y2.sig_sq[iy2]);
+  const MultiG_SigSq &x1 = kicked[0], &y1 = kicked[1], &x2 = kicker[ip][0], &y2 = kicker[ip][1];
+  // scale squared sigmas from IP=0 to IP="ip"
+  vector<double>
+    sig_sq_x1(x1.sig_sq),
+    sig_sq_y1(y1.sig_sq);
+  double beta_scale_x = beta[ip][0] / beta[0][0];
+  double beta_scale_y = beta[ip][1] / beta[0][1];
+  for (auto& s: sig_sq_x1) s *= beta_scale_x;
+  for (auto& s: sig_sq_y1) s *= beta_scale_y;
+  //
+  for (size_t ix1=0; ix1<x1.sig.size(); ++ix1) {
+    for (size_t iy1=0; iy1<y1.sig.size(); ++iy1) {
+      for (size_t ix2=0; ix2<x2.sig.size(); ++ix2) {
+	for (size_t iy2=0; iy2<y2.sig.size(); ++iy2) {
+	  double vdm_sigx = sqrt(sig_sq_x1[ix1] + x2.sig_sq[ix2]); // use scaled kicked sig_sq here
+	  double vdm_sigy = sqrt(sig_sq_y1[iy1] + y2.sig_sq[iy2]);
 	  E += x1.w[ix1] * y1.w[iy1] * x2.w[ix2] * y2.w[iy2] *
 	    E_from_unit_charge_2d_gaussian_times_2pi_epsilon_0(x, y,
 							       vdm_sigx, vdm_sigy);
@@ -389,12 +420,21 @@ double Mutli_XY_Gaussian_bunches::overlap_integral(double x, double y, int ip) c
   double o = 0;
   double x_sq = x*x, y_sq = y*y;
   const MultiG_SigSq &x1 = kicked[0], &y1 = kicked[1], &x2 = kicker[ip][0], &y2 = kicker[ip][1]; 
-  for (size_t ix1=0; ix1<x1.sig_sq.size(); ++ix1) {
-    for (size_t iy1=0; iy1<y1.sig_sq.size(); ++iy1) {
-      for (size_t ix2=0; ix2<x2.sig_sq.size(); ++ix2) {
-	for (size_t iy2=0; iy2<y2.sig_sq.size(); ++iy2) {
-	  double vdm_sigx_sq = x1.sig_sq[ix1] + x2.sig_sq[ix2];
-	  double vdm_sigy_sq = y1.sig_sq[iy1] + y2.sig_sq[iy2];
+  // scale squared sigmas from IP=0 to IP="ip"
+  vector<double>
+    sig_sq_x1(x1.sig_sq),
+    sig_sq_y1(y1.sig_sq);
+  double beta_scale_x = beta[ip][0] / beta[0][0];
+  double beta_scale_y = beta[ip][1] / beta[0][1];
+  for (auto& s: sig_sq_x1) s *= beta_scale_x;
+  for (auto& s: sig_sq_y1) s *= beta_scale_y;
+  //
+  for (size_t ix1=0; ix1<x1.sig.size(); ++ix1) {
+    for (size_t iy1=0; iy1<y1.sig.size(); ++iy1) {
+      for (size_t ix2=0; ix2<x2.sig.size(); ++ix2) {
+	for (size_t iy2=0; iy2<y2.sig.size(); ++iy2) {
+	  double vdm_sigx_sq = sig_sq_x1[ix1] + x2.sig_sq[ix2]; // use scaled kicked sig_sq here
+	  double vdm_sigy_sq = sig_sq_y1[iy1] + y2.sig_sq[iy2];
 	  o += x1.w[ix1] * y1.w[iy1] * x2.w[ix2] * y2.w[iy2] *
 	    0.5 / M_PI / sqrt(vdm_sigx_sq * vdm_sigy_sq) *
 	    exp(-0.5 * (x_sq / vdm_sigx_sq + y_sq / vdm_sigy_sq));

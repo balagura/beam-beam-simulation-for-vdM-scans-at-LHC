@@ -41,9 +41,13 @@ struct Mutli_XY_Gaussian_bunches {
   //
   // "n_sig_cut" will be explained below
   //
-  void reset_kicked_bunch(int coor, // 0 for x, 1 for y
-			  const vector<double>& sigmas,
+  void reset_kicked_bunch(int ip, // Gaussian widths at different ip2 will
+			  // be calculated as
+			  // sigmas * sqrt(beta_at_ips(ip2)/beta_at_ips(ip))
+			  int coor, // 0 for x, 1 for y
+			  const vector<double>& sigmas, // at the given "ip"
 			  const vector<double>& weights,
+			  const vector<double>& beta_at_all_ips_for_given_coordinate,
 			  double n_sig_cut); // see explanations below
   //
   // reset number of interaction points (usually followed by the reset of all
@@ -81,11 +85,14 @@ struct Mutli_XY_Gaussian_bunches {
   //
   // Dependencies on the density of the "kicked" bunch
   // 1) probability density functions of X-X' and Y-Y' radii, not necessarily
-  //    normalized (as the corresponding weights will be renormalized anyway)
-  double not_normalized_r_kicked_density(int coor, double r) const;
+  //    normalized (as the corresponding weights will be renormalized anyway).
+  //    Gaussian widths at "ip" scale according to sqrt(beta_ip / beta_0) *
+  //    sigmas_0
   //
-  // 2) the maximal radii in X-X' and Y-Y' to be simulated, returned as a pair
-  // of doubles (.first corresponds to X, .second - to Y).
+  double not_normalized_r_kicked_density(int coor, double r, int ip) const;
+  //
+  // 2) the maximal radii in X-X' and Y-Y' to be simulated at "ip", returned
+  // as a pair of doubles (.first corresponds to X, .second - to Y).
   //
   // They are chosen to reproduce the efficiency of +/- N sigmas for a single
   // Gaussian bunch, where N = n_sig_cut (the parameter above in
@@ -93,7 +100,11 @@ struct Mutli_XY_Gaussian_bunches {
   // maximal radius == the area of a single Gaussian outside +/-"n_sig_cut"
   // sigmas.
   //
-  pair<double, double> r_cut() const;
+  pair<double, double> r_cut(int ip) const;
+  //
+  // 3) beta functions at all IPs along coordinate "coor"
+  //
+  double accelerator_beta(int ip, int coor);
   //
   // Dependent on kicker bunch(es), ie. on the source of the electrostatic
   // field:
@@ -209,6 +220,7 @@ protected:
     const Bilinear_interpolator *bi_field;
   };
 
+  // kicker internally is stored for ip=0 (its sigmas depend on beta*)
   vector<Kicker_MultiG_XY> kicker;
   array<Kicked_MultiG, 2> kicked;
   // interpolators
@@ -226,6 +238,7 @@ protected:
     vector<int> ips;
   };
   vector<BI> bis;
+  vector<array<double, 2> > beta; // beta[ip][0/1 for x/y]
 };
 
 #endif
