@@ -22,13 +22,4 @@ N::N(Config& c) {
   // multiples of N_select_turns in the range 1...N_total_turns, regardless
   // of whether N_total_turns % N_select_turns == 0 or not. Every multiple
   // will be written out, so one will need to store "N_turns_stored" turns.
-  //
-  // Set also a random seed here, in the very beginning. Note, it might be
-  // required early, in Config_Mutli_XY_Gaussian_bunches() constructor for
-  // an irrational addition to deltaQ
-  if (c.defined("seed")) {
-    srand48(c("seed"));
-  } else {
-    srand48(time(NULL));
-  }
 }
