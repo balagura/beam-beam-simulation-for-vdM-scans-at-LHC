@@ -155,8 +155,8 @@ kicker.4.y.scale.by = 1000000
 # Simulated kicked bunch in beam 1, kicker bunches in beam 2
 # (directly from the table):
 #
-# kicker.x.next.phase.over.2pi = 8.295954 31.975690 56.064831 64.310000
-# kicker.y.next.phase.over.2pi = 7.669167 29.648602 51.017069 59.320000
+# kicked.x.next.phase.over.2pi = 8.295954 31.975690 56.064831 64.310000
+# kicked.y.next.phase.over.2pi = 7.669167 29.648602 51.017069 59.320000
 #
 # The phase at IP 1 is zero by definition, therefore, the arrays above start from
 # the phase at IP 2, this is why they are called "next" phase over 2pi
@@ -169,20 +169,20 @@ kicker.4.y.scale.by = 1000000
 # reversed (tune - table column), eg.
 #   reversed 64.31 - (0, 8.272802, 31.984398, 55.799012) =
 #
-# kicker.x.next.phase.over.2pi = 8.510988 32.325602 56.037198 64.310000
+# kicked.x.next.phase.over.2pi = 8.510988 32.325602 56.037198 64.310000
 
 #
 #   reversed 59.32 - (0, 7.957720, 29.761319, 51.715754):
 #
-# kicker.y.next.phase.over.2pi = 7.604246 29.558681 51.362280 59.320000
+# kicked.y.next.phase.over.2pi = 7.604246 29.558681 51.362280 59.320000
 #
 #
 # Instead of the values above, for debugging purposes, here the full tunes are
 # chosen below for all phases/2pi. Then, all IPs become equivalent and the
 # results should coincide with the single-IP case.
 #
-kicker.x.next.phase.over.2pi =  64.31 128.62 192.93 257.24
-kicker.y.next.phase.over.2pi =  59.32 118.64 177.96 237.28
+kicked.x.next.phase.over.2pi =  64.31 128.62 192.93 257.24
+kicked.y.next.phase.over.2pi =  59.32 118.64 177.96 237.28
 
 # Phases/2pi or full tunes might be given with 2-3 digits after the
 # comma. So, after 100 or 1000 turns the points return to their original
