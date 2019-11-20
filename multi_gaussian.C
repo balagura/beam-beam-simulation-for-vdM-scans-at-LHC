@@ -120,12 +120,9 @@ double Mutli_XY_Gaussian_bunches::Kicked_MultiG::not_normalized_r_density(double
 }
 // Kicker_MultiG functions
 string Mutli_XY_Gaussian_bunches::Kicker_MultiG::reset(const vector<double>& sigmas,
-						       const vector<double>& weights,
-						       double phase_advance) {
+						       const vector<double>& weights) {
   string err = Mutli_XY_Gaussian_bunches::MultiG_SigSq::reset(sigmas, weights);
   if (err != "") return err;
-  deltaQ = phase_advance;
-  exp_2pi_i_deltaQ = exp(2i * M_PI * phase_advance);
   exp_w.resize(w.size());
   for (size_t i=0; i<exp_w.size(); ++i) {
     exp_w[i] = w[i] / sqrt(2 * M_PI) / sig[i];
@@ -170,9 +167,8 @@ void Mutli_XY_Gaussian_bunches::reset_ip_number(int n_ip) { kicker.resize(n_ip);
 void Mutli_XY_Gaussian_bunches::reset_kicker_bunch(int ip, // can be 0, 1, 2 , ...
 						   int coor, // 0 for x, 1 for y
 						   const vector<double>& sigmas,
-						   const vector<double>& weights,
-						   double phase_advance) {
-  string err = kicker[ip][coor].reset(sigmas, weights, phase_advance);
+						   const vector<double>& weights) {
+  string err = kicker[ip][coor].reset(sigmas, weights);
   if (err != "") {
     cerr << "Kicker." << ip+1 << "." << "xy"[coor] << ": " << err << endl;
     exit(1);
@@ -205,6 +201,26 @@ void Mutli_XY_Gaussian_bunches::reset_kicker_positions(vector<array<vector<doubl
       kicker[ip][coor].reset_positions(x);      
     }
   }
+}
+void Mutli_XY_Gaussian_bunches::reset_phases(const vector<array<double, 2> >&
+					     betatron_phase_over_2pi_at_next_ip) {
+  ip_phase.resize(betatron_phase_over_2pi_at_next_ip.size());
+  exp_i_next_dphase.resize(ip_phase.size());
+  cout << "phases\n";
+  for (size_t coor=0; coor<2; ++coor) {
+    tune[coor] = 0;
+    for (size_t ip=0; ip<ip_phase.size(); ++ip) {
+      double
+	curr = (ip == 0) ? 0 : betatron_phase_over_2pi_at_next_ip[ip-1][coor],
+	next =                 betatron_phase_over_2pi_at_next_ip[ip  ][coor];
+      ip_phase[ip][coor] = curr * 2 * M_PI;
+      double delta = next - curr;
+      tune[coor] += delta;
+      exp_i_next_dphase[ip][coor] = exp(2i * M_PI * delta);
+      cout << ip << " " << coor << " " << ip_phase[ip][coor] << ", exp = " << exp_i_next_dphase[ip][coor] << endl;
+    }
+  }
+  cout << "tunes = " << tune[0] << ", " << tune[1] << endl;
 }
 ostream& operator<<(ostream& os, const Mutli_XY_Gaussian_bunches::MultiG& x) {
   os << "sigma (weight) = ";
@@ -357,9 +373,8 @@ complex<double> Mutli_XY_Gaussian_bunches::Kicker_MultiG_XY::field(double x, dou
   }
   return E;
 }
-double Mutli_XY_Gaussian_bunches::deltaQ(int ip, int coor) const { return kicker[ip][coor].deltaQ; }
-complex<double> Mutli_XY_Gaussian_bunches::exp_2pi_i_deltaQ(int ip, int coor) const {
-  return kicker[ip][coor].exp_2pi_i_deltaQ;
+complex<double> Mutli_XY_Gaussian_bunches::exp_i_next_ip_phase_minus_this(int ip, int coor) const {
+  return exp_i_next_dphase[ip][coor];
 }
 int Mutli_XY_Gaussian_bunches::n_ip() const { return kicker.size(); }
 const vector<double>& Mutli_XY_Gaussian_bunches::kicker_positions(int ip, int coor) const {
