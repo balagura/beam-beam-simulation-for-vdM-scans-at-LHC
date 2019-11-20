@@ -47,9 +47,9 @@ struct Config_Mutli_XY_Gaussian_bunches : public Mutli_XY_Gaussian_bunches {
     vector<array<vector<double>, 2> > positions(n_ip); // [ip][coor][step]
     vector<array<double, 2> > betatron_phase_over_2pi_at_next_ip(n_ip);
     for (size_t coor=0; coor<2; ++coor) {
-      const vector<double>& deltaQs = c.vd(string("kicker.") + "xy"[coor] + ".next.phase.over.2pi");
-      if (deltaQs.size() != n_ip) {
-	cerr << "The number of given phases (" << deltaQs.size()
+      const vector<double>& nextQ = c.vd(string("kicked.") + "xy"[coor] + ".next.phase.over.2pi");
+      if (nextQ.size() != n_ip) {
+	cerr << "The number of given phases (" << nextQ.size()
 	     << ") is not equal to the number of IPs (" << n_ip << ")\n";
 	exit(1);
       }
@@ -70,9 +70,9 @@ struct Config_Mutli_XY_Gaussian_bunches : public Mutli_XY_Gaussian_bunches {
 	//
 	if (!c.defined("exact.phases") ||
 	    c.s("exact.phases") != "TRUE") {
-	  betatron_phase_over_2pi_at_next_ip[ip][coor] = deltaQs[ip] + exp(-8.5) * (drand48() - 0.5);
+	  betatron_phase_over_2pi_at_next_ip[ip][coor] = nextQ[ip] + exp(-8.5) * (drand48() - 0.5);
 	} else {
-	  betatron_phase_over_2pi_at_next_ip[ip][coor] = deltaQs[ip];
+	  betatron_phase_over_2pi_at_next_ip[ip][coor] = nextQ[ip];
 	}
 	string s = "kicker." + to_string(ip+1) + string(".") + "xy"[coor];
 	vector<double> pos = c.vd(s);
@@ -303,14 +303,15 @@ int main(int argc, char** argv) {
   // scaled by beta, x' = dx/dz * beta which has units of length to form the
   // circle in x-x' plane), the scale is the same.
   //
-  // Store sqrt(next_beta_x,y / this_beta_x,y) in a container:
+  // Store sqrt(next_beta_x,y / this_beta_x,y) * exp(2pi*i*(next phase - this)) in a container:
   //
-  vector<array<double, 2> > sqrt_beta_ratio_next_to_this(n.ip());
+  vector<array<complex<double>, 2> > transportation_factor(n.ip());
   for (int ip=0; ip<n.ip(); ++ip) {
     int ip_next = (ip==n.ip()-1) ? 0 : (ip+1);
     for (int coor=0; coor<2; ++coor) {
-      sqrt_beta_ratio_next_to_this[ip][coor] = sqrt(bb.accelerator_beta(ip_next, coor) /
-						    bb.accelerator_beta(ip,      coor));
+      transportation_factor[ip][coor] = sqrt(bb.accelerator_beta(ip_next, coor) /
+					     bb.accelerator_beta(ip,      coor)) *
+	bb.exp_i_next_ip_phase_minus_this(ip, coor);
     }
   }
   // Initial point amplitudes (rX, rY) were prepared for ip=0, so simulation
@@ -390,7 +391,7 @@ int main(int argc, char** argv) {
     // prepare n.points() threads to run in parallel
     vector<thread> threads(n.points());
     auto loop = [&rx, &ry, &w, &bb, z2, step,
-		 &sqrt_beta_ratio_next_to_this, &kick,
+		 &transportation_factor, &kick,
 		 &n, &output,
 		 kick_model]
       (int i, double rnd1, double rnd2) {
@@ -404,26 +405,15 @@ int main(int argc, char** argv) {
 		 for (int phase = 0; phase < N::PHASES; ++phase) {
 		   for (int phase_turn=0; phase_turn<n.turns(phase); ++phase_turn, ++i_turn) {
 		     for (size_t ip=0; ip<n.ip(); ++ip) {
-		       { // kick + turn
-			 complex<double> z1 = complex<double>(real(xZ), real(yZ));
-			 complex<double> z1_minus_z2 = z1 - z2[ip];
-			 complex<double> k = kick(ip, phase, phase_turn, z1_minus_z2);
-			 // The momentum kick is subtracted below because of
-			 // the minus sign in the definition of eg. zX = X -
-			 // iX'. The kick is added to X', so that i*kick is
-			 // subtracted from zX./
-			 xZ = (xZ - 1i * real( k )) * bb.exp_i_next_ip_phase_minus_this(ip, 0);
-			 yZ = (yZ - 1i * imag( k )) * bb.exp_i_next_ip_phase_minus_this(ip, 1);
-		       }
-		       // calculate and store output here, in the end, after
-		       // the propagation through the ring (and after the
-		       // beam-beam). One could do it before, then the last
-		       // propagation through the ring could be
-		       // dropped. However, in this case the first output
-		       // always corresponded to the case without beam-beam,
-		       // even if N_turns for no beam-beam phase would be set
-		       // to 0. For this reason and for simplicity the above
-		       // logic is chosen.
+		       // It is more convenient to fill statistics before the
+		       // propagation through the ring and before the
+		       // beam-beam: then the statistics and the
+		       // transportation are performed from the same ip (in
+		       // particular, with the same beta) and one can start
+		       // both from ip=0.  Note, however, that with the chosen
+		       // logic the first turn in ip=0 is always without
+		       // beam-beam (one starts from the prepared randomized xZ,
+		       // yZ coordinates)
 		       //
 		       // Overlap integral is calculated as a sum of (2nd bunch profile
 		       // density * weight) over the sample of 1st bunch "particles".
@@ -462,10 +452,18 @@ int main(int argc, char** argv) {
 			 // N_turn/select_runs.
 			 output.get<Points>(ip).add(j_turn, i, xZ, yZ);
 		       }
-		       // scale to next IP according to 
-		       // sqrt(beta(next ip)/beta(this))
-		       xZ *= sqrt_beta_ratio_next_to_this[ip][0];
-		       yZ *= sqrt_beta_ratio_next_to_this[ip][1];
+		       // transport to next ip: kick + turn
+		       complex<double> k = kick(ip, phase, phase_turn, z1_minus_z2);
+		       // The momentum kick is subtracted below because of
+		       // the minus sign in the definition of eg. zX = X -
+		       // iX'. The kick is added to X', so that i*kick is
+		       // subtracted from zX.
+		       //
+		       // "transportation_factor" changes scale in next IP
+		       // according to sqrt(beta(next ip)/beta(this)) and
+		       // turns the phase
+		       xZ = (xZ - 1i * real( k )) * transportation_factor[ip][0];
+		       yZ = (yZ - 1i * imag( k )) * transportation_factor[ip][1];
 		     }
 		   }
 		 }
@@ -519,7 +517,7 @@ int main(int argc, char** argv) {
       for (int coor=0; coor<2; ++coor) {
 	double pi_tune = M_PI * bb.accelerator_tune(coor);
 	double common_factor = sqrt(bb.accelerator_beta(ip, coor)) / 2 / sin(pi_tune);
-	for (size_t ip2=0; ip2<kick_average.size(); ++ip2) {
+	for (size_t ip2=0; ip2<n.ip(); ++ip2) {
 	  double delta_phase = fabs(bb.betatron_ip_phase(ip, coor) - bb.betatron_ip_phase(ip2, coor));
 	  double k = (coor == 0) ? real(kick_average[ip2]) : imag(kick_average[ip2]);
 	     analytic_avr_xy[coor] +=
@@ -529,6 +527,9 @@ int main(int argc, char** argv) {
 	       // divide, since kick_average[ip2] = angular_kick * beta_ip2 -
 	       // already multiplied by beta_ip2
 	       sqrt(bb.accelerator_beta(ip2, coor));
+	     if (coor == 0)
+	       cout << ip << " ip2=" << ip2 << " delta_phase=" << delta_phase << " common_f=" << common_factor << " k=" << k << " cos=" << cos(delta_phase-pi_tune) << " sqrt=" << sqrt(bb.accelerator_beta(ip2, coor)) << endl;
+	     
 	}
       }
       output_summary << step << " "
