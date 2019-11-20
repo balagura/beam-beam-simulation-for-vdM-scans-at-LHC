@@ -206,7 +206,6 @@ void Mutli_XY_Gaussian_bunches::reset_phases(const vector<array<double, 2> >&
 					     betatron_phase_over_2pi_at_next_ip) {
   ip_phase.resize(betatron_phase_over_2pi_at_next_ip.size());
   exp_i_next_dphase.resize(ip_phase.size());
-  cout << "phases\n";
   for (size_t coor=0; coor<2; ++coor) {
     tune[coor] = 0;
     for (size_t ip=0; ip<ip_phase.size(); ++ip) {
@@ -217,10 +216,8 @@ void Mutli_XY_Gaussian_bunches::reset_phases(const vector<array<double, 2> >&
       double delta = next - curr;
       tune[coor] += delta;
       exp_i_next_dphase[ip][coor] = exp(2i * M_PI * delta);
-      cout << ip << " " << coor << " " << ip_phase[ip][coor] << ", exp = " << exp_i_next_dphase[ip][coor] << endl;
     }
   }
-  cout << "tunes = " << tune[0] << ", " << tune[1] << endl;
 }
 ostream& operator<<(ostream& os, const Mutli_XY_Gaussian_bunches::MultiG& x) {
   os << "sigma (weight) = ";
