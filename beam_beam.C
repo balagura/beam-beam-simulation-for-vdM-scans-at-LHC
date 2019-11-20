@@ -45,32 +45,35 @@ struct Config_Mutli_XY_Gaussian_bunches : public Mutli_XY_Gaussian_bunches {
     kicked_ip -= 1; // count from zero
     // accumulate beam separations:
     vector<array<vector<double>, 2> > positions(n_ip); // [ip][coor][step]
+    vector<array<double, 2> > betatron_phase_over_2pi_at_next_ip(n_ip);
     for (size_t coor=0; coor<2; ++coor) {
-      const vector<double>& deltaQs = c.vd(string("kicker.") + "xy"[coor] + ".phase.advance");
+      const vector<double>& deltaQs = c.vd(string("kicker.") + "xy"[coor] + ".next.phase.over.2pi");
       if (deltaQs.size() != n_ip) {
-	cerr << "The number of given phase advances (" << deltaQs.size()
+	cerr << "The number of given phases (" << deltaQs.size()
 	     << ") is not equal to the number of IPs (" << n_ip << ")\n";
 	exit(1);
       }
       for (int ip=0; ip<n_ip; ++ip) {
-	double deltaQ = deltaQs[ip];
-	// Phase advances or full tunes might be given with 2-3 digits after
+	// Phases or full tunes might be given with 2-3 digits after
 	// comma. So, after 100 or 1000 turns the points return to their original
 	// positions (as 100* or 1000*Qx,y becomes integer). To avoid this and add
 	// extra randomness, a "negligible" irrational number randomly distributed
 	// in the interval -exp(-8.5)...+exp(-8.5) = +/-0.0001017342 is added by
 	// default to deltaQ. This makes it irrational and opens otherwise closed
 	// Lissajous figures of betatron oscillations in X-Y plane. In reality the
-	// phase advances should be irrational.
+	// phases should be irrational.
 	//
 	// If this is not desired, an option
-	//   exact.phase.advances = TRUE
-	// should be set in the configuration. Then all phase advances
+	//   exact.phases = TRUE
+	// should be set in the configuration. Then all phase
 	// from the configuration file are used "as is".
 	//
-	if (!c.defined("exact.phase.advances") ||
-	    c.s("exact.phase.advances") != "TRUE") deltaQ += exp(-8.5) * (drand48() - 0.5);
-	//
+	if (!c.defined("exact.phases") ||
+	    c.s("exact.phases") != "TRUE") {
+	  betatron_phase_over_2pi_at_next_ip[ip][coor] = deltaQs[ip] + exp(-8.5) * (drand48() - 0.5);
+	} else {
+	  betatron_phase_over_2pi_at_next_ip[ip][coor] = deltaQs[ip];
+	}
 	string s = "kicker." + to_string(ip+1) + string(".") + "xy"[coor];
 	vector<double> pos = c.vd(s);
 	// if "scale_x_by" parameter is given, multiply x2 by that, same for y2
@@ -84,8 +87,7 @@ struct Config_Mutli_XY_Gaussian_bunches : public Mutli_XY_Gaussian_bunches {
 	vector<double> weights = c.defined(s + ".weight") ? c.vd(s + ".weight") : vector<double>();
 	Mutli_XY_Gaussian_bunches::reset_kicker_bunch(ip, coor,
 						      c.vd(s + ".sig"),
-						      weights,
-						      deltaQ);
+						      weights);
       }
       string s = string("kicked.") + "xy"[coor];
       if (c.vd(s + ".beta").size() != n_ip) {
@@ -122,7 +124,8 @@ struct Config_Mutli_XY_Gaussian_bunches : public Mutli_XY_Gaussian_bunches {
 	   << "should contain two numbers (for the density and for the field)\n";
       exit(1);
     }
-    reset_interpolators(n_cells[0], n_cells[1]);
+    Mutli_XY_Gaussian_bunches::reset_interpolators(n_cells[0], n_cells[1]);
+    Mutli_XY_Gaussian_bunches::reset_phases(betatron_phase_over_2pi_at_next_ip);
   }
 protected:
   // mask initialization functions from the base class:
@@ -130,8 +133,10 @@ protected:
 			  const vector<double>& weights, double n_sig_cut);
   void reset_ip_number(size_t n_ip);
   void reset_kicker_bunch(int ip, int coor, const vector<double>& sigmas,
-			  const vector<double>& weights, const vector<double>& separations,
-			  double phase_advance);
+			  const vector<double>& weights, const vector<double>& separations);
+  void reset_phases(vector<array<double, 2> > betatron_phase_over_2pi_at_next_ip);
+  void reset_interpolators(int n_density_cells,
+			   int n_field_cells);
 };
 
 int main(int argc, char** argv) {
@@ -142,6 +147,15 @@ int main(int argc, char** argv) {
   }
   ifstream conf_file(argv[1]);
   Config c(conf_file);
+  //
+  // Set a random seed here, in the very beginning as it will be
+  // required in Config_Mutli_XY_Gaussian_bunches() constructor for
+  // an irrational addition to phases
+  if (c.defined("seed")) {
+    srand48(c("seed"));
+  } else {
+    srand48(time(NULL));
+  }
   string output_dir;
   if (c.defined("output.directory")) {
     output_dir = c.s("output.directory");
@@ -164,7 +178,6 @@ int main(int argc, char** argv) {
     }
     return 1;
   }
-
   N n(c);
   Config_Mutli_XY_Gaussian_bunches bb(c, n.ip());
   if (c.vd("N.kicker.particles").size() != n.ip()) {
@@ -181,8 +194,9 @@ int main(int argc, char** argv) {
       2 * c("Z.kicked") * c("Z.kicker") * alpha * hbar / beta0 / c["p"] * 1e12; // in um^2
     for (int ip=0; ip<n.ip(); ++ip) {
       double n = c.vd("N.kicker.particles")[ip];
-      for (int coor=0; coor<2; ++coor)
+      for (int coor=0; coor<2; ++coor) {
 	kick_const[ip][coor] = factor * n * bb.accelerator_beta(ip, coor);
+      }
     }
   }
   enum {PRECISE, PRECISE_MINUS_AVERAGE, AVERAGE} kick_model = PRECISE;
@@ -277,15 +291,23 @@ int main(int argc, char** argv) {
   //
   // transportation to next IP:
   //
-  // x or y oscillates with an amplitude emittance * sqrt(beta_x,y), emittance
-  // is conserved, so at next IP the x,y scale =
-  // this_x,y_scale * sqrt(next_beta_x,y / this_beta_x,y).
+  // x = emittance * sqrt(beta) * cos(phase(z))
+  // dx/dz = -emittance / sqrt(beta) * sin(phase(z)),
+  // since d phase/dz = 1/beta and at IP alpha = -0.5 d beta/dz = 0
+  // (and same for y).
+  //
+  // In addition to the simulated phase change (circle's rotation), one needs
+  // to change the radius proportionally to sqrt(beta), as emittance is
+  // conserved. So, at the next IP the x,y scale = this_x,y_scale *
+  // sqrt(next_beta_x,y / this_beta_x,y). For the scaled x' (ie. already
+  // scaled by beta, x' = dx/dz * beta which has units of length to form the
+  // circle in x-x' plane), the scale is the same.
   //
   // Store sqrt(next_beta_x,y / this_beta_x,y) in a container:
   //
   vector<array<double, 2> > sqrt_beta_ratio_next_to_this(n.ip());
   for (int ip=0; ip<n.ip(); ++ip) {
-    int ip_next = (ip==3) ? 0 : (ip+1);
+    int ip_next = (ip==n.ip()-1) ? 0 : (ip+1);
     for (int coor=0; coor<2; ++coor) {
       sqrt_beta_ratio_next_to_this[ip][coor] = sqrt(bb.accelerator_beta(ip_next, coor) /
 						    bb.accelerator_beta(ip,      coor));
@@ -377,7 +399,7 @@ int main(int argc, char** argv) {
 		  complex<double>
 		   xZ = rx[i] * exp(2i * M_PI * rnd1),
 		   yZ = ry[i] * exp(2i * M_PI * rnd2);
-		 int i_turn = 0;
+		  int i_turn = 0;
 		 //
 		 for (int phase = 0; phase < N::PHASES; ++phase) {
 		   for (int phase_turn=0; phase_turn<n.turns(phase); ++phase_turn, ++i_turn) {
@@ -389,9 +411,9 @@ int main(int argc, char** argv) {
 			 // The momentum kick is subtracted below because of
 			 // the minus sign in the definition of eg. zX = X -
 			 // iX'. The kick is added to X', so that i*kick is
-			 // subtracted from zX.
-			 xZ = (xZ - 1i * real( k )) * bb.exp_2pi_i_deltaQ(ip, 0);
-			 yZ = (yZ - 1i * imag( k )) * bb.exp_2pi_i_deltaQ(ip, 1);
+			 // subtracted from zX./
+			 xZ = (xZ - 1i * real( k )) * bb.exp_i_next_ip_phase_minus_this(ip, 0);
+			 yZ = (yZ - 1i * imag( k )) * bb.exp_i_next_ip_phase_minus_this(ip, 1);
 		       }
 		       // calculate and store output here, in the end, after
 		       // the propagation through the ring (and after the
@@ -415,8 +437,8 @@ int main(int argc, char** argv) {
 		       // reweighted with w[i] in the calculation of the final
 		       // overlap integral appearing in summary
 		       output.get<Integrals_Per_Particle>(ip).add(phase, i, rho2); // always filled
-		       if (output.is_active<Avr_XY_Per_Turn_Per_Particle>(ip)) {
-			 output.get<Avr_XY_Per_Turn_Per_Particle>(ip).add(phase, i, z1);
+		       if (output.is_active<Avr_XY_Per_Particle>(ip)) {
+			 output.get<Avr_XY_Per_Particle>(ip).add(phase, i, z1);
 		       }
 		       if (output.is_active<Integrals_Per_Turn>(ip)) {
 			 // Integrals_Per_Turn are reweighted immediately
@@ -456,8 +478,8 @@ int main(int argc, char** argv) {
 		     int n_turns = n.turns(phase);
 		     auto& integ = output.get<Integrals_Per_Particle>(ip);
 		     integ.normalize_by_n_turns(n_turns, phase, i);
-		     if (output.is_active<Avr_XY_Per_Turn_Per_Particle>(ip)) {
-		       auto& avr_xy = output.get<Avr_XY_Per_Turn_Per_Particle>(ip);
+		     if (output.is_active<Avr_XY_Per_Particle>(ip)) {
+		       auto& avr_xy = output.get<Avr_XY_Per_Particle>(ip);
 		       avr_xy.normalize_by_n_turns(n_turns, phase, i);
 		     }
 		   }
@@ -474,54 +496,58 @@ int main(int argc, char** argv) {
     for (int i = 0; i < n.points(); ++i) threads[i].join();
     // 
     output.write(step);
-    // write summary
+    // write kicker_positions and summary
     for (int ip=0; ip<n.ip(); ++ip) {
+      output_kicker_positions << step << " " << ip << " "
+			      << real(z2[ip]) << " " << imag(z2[ip]) << "\n";
+      // integrals for summary
       auto integ_avr = output.get<Integrals_Per_Particle>(ip).weighted_average(w);
-      // int0 can also be calculated as a mean of out<Integrals_Per_Turn> (per turn)
-      double int0 = integ_avr[N::NO_BB];
-      double int_to_int0_correction = integ_avr[N::BB] / int0;
-
       double int0_analytic = bb.overlap_integral(real(z2[ip]), imag(z2[ip]), ip);
-      double int0_to_analytic = int0 / int0_analytic;
-
-      complex<double> avr_z = output.get<Avr_XY_Per_Turn_Per_Particle>(ip).weighted_average(w)[N::BB];
-      // the sign of "analytic_kick" (printed below) is not inverted, ie. it is
-      // for X', not for z = X - iX'
-      //
-      // note, it has units of X', ie. of length; to convert to angles, one
-      // needs to divide by beta*
-      //
-      // kick_average is halved because of the accelerator dynamics: if
-      // field() = const = E, after many turns the ratio angle/E is kicked
-      // from initial -kick_average/2 to final +kick_average/2, and their
-      // difference is kick_average.
-      //
-      complex<double> analytic_kick = kick_average[ip] / 2.;
-      // the X(Y) shift corresponding to X'(Y') angular kick
-      complex<double> approx_analytic_avr_z =
-	complex<double>(real(analytic_kick) / tan(M_PI * bb.deltaQ(ip, 0)),
-			imag(analytic_kick) / tan(M_PI * bb.deltaQ(ip, 1)));
-      double int0_rel_err = -9999;
+      double int0_rel_err = nan("");
       if (output.is_active<Integrals_Per_Turn>(ip)) {
 	double sd_int0 = 0;
-	for (int turn=0; turn<n.turns(0); ++turn) {
-	  double dx = output.get<Integrals_Per_Turn>(ip).integ()[turn] - int0;
+	for (int turn=0; turn<n.turns(N::NO_BB); ++turn) {
+	  double dx = output.get<Integrals_Per_Turn>(ip).integ()[turn] - integ_avr[N::NO_BB];
 	  sd_int0 += dx * dx;
 	}
 	int0_rel_err = sqrt(sd_int0 / (n.turns(0) - 1.) / double(n.turns(0))) / int0_analytic;
       }
-      output_kicker_positions << step << " " << ip << " "
-			      << real(z2[ip]) << " " << imag(z2[ip]) << "\n";
+      // X(Y) orbit shift at ip, analytic formula:
+      // sqrt(beta_ip) / 2 / sin(pi*tune) *
+      // sum( angular_kick_at_ip2 * sqrt(beta_ip2) * cos(|phase_ip - phase_ip2| - pi*tune) )
+      array<double, 2> analytic_avr_xy = {0., 0.};
+      for (int coor=0; coor<2; ++coor) {
+	double pi_tune = M_PI * bb.accelerator_tune(coor);
+	double common_factor = sqrt(bb.accelerator_beta(ip, coor)) / 2 / sin(pi_tune);
+	for (size_t ip2=0; ip2<kick_average.size(); ++ip2) {
+	  double delta_phase = fabs(bb.betatron_ip_phase(ip, coor) - bb.betatron_ip_phase(ip2, coor));
+	  double k = (coor == 0) ? real(kick_average[ip2]) : imag(kick_average[ip2]);
+	     analytic_avr_xy[coor] +=
+	       common_factor *
+	       k *
+	       cos(delta_phase - pi_tune) /
+	       // divide, since kick_average[ip2] = angular_kick * beta_ip2 -
+	       // already multiplied by beta_ip2
+	       sqrt(bb.accelerator_beta(ip2, coor));
+	}
+      }
       output_summary << step << " "
 		     << ip << " "
-		     << int_to_int0_correction << " "
+	// overlaps can also be calculated as means of <Integrals_Per_Turn> within a given phase
+		     << integ_avr[N::BB] / integ_avr[N::NO_BB] << " "
 		     << int0_analytic << " "
-		     << int0 << " "
-		     << int0_to_analytic << " "
-		     << int0_rel_err << " "
-		     << real(avr_z) << " " << imag(avr_z) << " "
-		     << real(approx_analytic_avr_z) << " "
-		     << imag(approx_analytic_avr_z) << "\n";
+		     << integ_avr[N::NO_BB] << " "
+		     << integ_avr[N::NO_BB] / int0_analytic << " "
+		     << int0_rel_err << " ";
+      if (output.is_active<Avr_XY_Per_Particle>(ip)) {
+	auto avr_xy = output.get<Avr_XY_Per_Particle>(ip).weighted_average(w);
+	output_summary << real(avr_xy[N::NO_BB]) << " " << imag(avr_xy[N::NO_BB]) << " "
+		       << real(avr_xy[N::   BB]) << " " << imag(avr_xy[N::   BB]) << " ";
+      } else {
+	output_summary << nan("") << " " << nan("") << " " << nan("") << " " << nan("") << " ";
+      }
+      output_summary << analytic_avr_xy[0] << " "
+		     << analytic_avr_xy[1] << "\n";
     }
     cout << " done" << endl;
   } // end of loop over steps
@@ -558,12 +584,12 @@ int main(int argc, char** argv) {
   }
   cout << "\nFinal results are written to " << output_dir << " directory.\n\n"
        << "The summary appears in \"summary.txt\" in the format:\n"
-       << "step IP (beam-beam/no beam-beam luminosity correction)\n"
-       << "(analytic, numeric no beam-beam overlap integrals, their ratio and its error; \n"
-       << "note, error = -9999 if \"integrals.per.turn\" option is not requested in \"output\")\n"
-       << "(X,Y average shift of the kicked bunch due to beam-beam interactions in all IPs -\n"
-       << "only if \"centers.per.particle\" is requested in \"output\")\n"
-       << "(the same shift  analytically calculated but from beam-beam in this IP only)\n\n";
+       << "step IP <beam-beam/no beam-beam luminosity correction>\n"
+       << "<analytic>, <numeric> no beam-beam overlap integrals, <their ratio> and <its error> \n"
+       << "(note, error = \"nan\" if \"integrals.per.turn\" option is not requested in \"output\")\n"
+       << "numerically calculated <X>, <Y> center-of-mass shift of the kicked bunch without beam-beam\n"
+       << "(should be zero) and <X>, <Y> shift with beam-beam (\"nan\" if \"avr.xy.per.particle\" was\n"
+       << "not requested in \"output\"), the same shift calculated for <X> and <Y> analytically.\n\n";
   {
     ofstream config_out((output_dir + "/config.txt").c_str());
     config_out << c;
