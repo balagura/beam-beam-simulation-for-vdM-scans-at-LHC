@@ -63,16 +63,20 @@ struct Mutli_XY_Gaussian_bunches {
   void reset_kicker_bunch(int ip, // can be 0, 1, 2 , ...
 			  int coor, // 0 for x, 1 for y
 			  const vector<double>& sigmas,
-			  const vector<double>& weights,
-			  double phase_advance);
+			  const vector<double>& weights);
   
   //
   // "positions[ip][coor]" is a vector of beam positions: it contains the
   // coordinates of the kicker bunch centers at the interaction point "ip"
-  // along "coor" axis in the frame where the kicked bunch center is at (0,0).
+  // along "coor" axis in the frame where the kicked bunch center is at (0,0)
   //
   void reset_kicker_positions(vector<array<vector<double>, 2> > positions);
   //
+  // "betatron_phase_over_2pi_at_next_ip[ip][coor]" is the phase/2pi of the
+  // betatron transverse oscillations at the interaction point "ip+1" (or zero
+  // for the last "ip") along X ("coor"=0) or Y ("coor"=1)
+  //
+  void reset_phases(const vector<array<double, 2> >& betatron_phase_over_2pi_at_next_ip);
   // Create bilinear interpolators to speed up density and field
   // calculations. The interpolator for one bunch is reused for all identical
   // bunches at other interaction points.
@@ -120,10 +124,13 @@ struct Mutli_XY_Gaussian_bunches {
   // which is much faster for elliptical or multi-Gaussian bunches
   complex<double> field(double x, double y, int ip) const;
   //
-  // 3) phase advances deltaQ, one per interaction point and per X-/Y-axis,
-  //    and the corresponding complex factor exp(2*pi*i * deltaQ)
-  double deltaQ(int ip, int coor) const;
-  complex<double> exp_2pi_i_deltaQ(int ip, int coor) const;
+  // 3) Betatron oscillation phase at "ip" for X- or Y-coordinate ("coor" = 0
+  //    or 1, respectively),
+  //    exp(2*pi*i * (phase difference between next ip and this)) and
+  //    the tune (sum of all phase differences)
+  double betatron_ip_phase(int ip, int coor) const { return ip_phase[ip][coor]; }
+  complex<double> exp_i_next_ip_phase_minus_this(int ip, int coor) const;
+  double accelerator_tune(int coor) const { return tune[coor]; }
   //
   // 4) number of interaction points
   int n_ip() const;
@@ -171,7 +178,6 @@ struct Mutli_XY_Gaussian_bunches {
   // their centers.
   double overlap_integral(double x, double y, int ip) const;
   //
-
 protected:
   struct MultiG {
     vector<double> sig, w;
@@ -198,12 +204,9 @@ protected:
 
   struct Kicker_MultiG : public MultiG_SigSq {
     Kicker_MultiG() : li_density(nullptr) {}
-    string reset(const vector<double>& sigmas, const vector<double>& weights,
-		 double phase_advance);
+    string reset(const vector<double>& sigmas, const vector<double>& weights);
     void reset_positions(const vector<double>& positions);
     double density(double x) const;
-    double deltaQ;
-    complex<double> exp_2pi_i_deltaQ;
     vector<double> position;
     // Kicker bunch density: rho(x,y) = rho(x) * rho(y), where
     //  rho(x) = sum_i wx[i] /sqrt(2 pi)/sigx[i] * exp(-0.5*(x/sigx[i])^2)
@@ -220,8 +223,8 @@ protected:
     const Bilinear_interpolator *bi_field;
   };
 
-  // kicker internally is stored for ip=0 (its sigmas depend on beta*)
   vector<Kicker_MultiG_XY> kicker;
+  // kicked bunch internally is stored for ip=0 (its sigmas depend on beta*)
   array<Kicked_MultiG, 2> kicked;
   // interpolators
   struct LI {
@@ -239,6 +242,9 @@ protected:
   };
   vector<BI> bis;
   vector<array<double, 2> > beta; // beta[ip][0/1 for x/y]
+  array<double, 2> tune;
+  vector<array<double, 2> > ip_phase; // starts from 0 at ip=0
+  vector<array<complex<double>, 2> > exp_i_next_dphase; // [ip][coor]
 };
 
 #endif
