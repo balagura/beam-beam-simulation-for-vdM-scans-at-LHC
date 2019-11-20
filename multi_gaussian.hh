@@ -54,17 +54,11 @@ struct Mutli_XY_Gaussian_bunches {
   // kicker bunches)
   void reset_ip_number(int n_ip);
   //
-  // "phase_advance" is the phase change of the betatron transverse
-  // oscillations relative to the previous kick. In case of only one
-  // interaction point, it is the full tune of the accelerator
-  // ring. Otherwise, the sum of all "phase_advance"s should be equal to the
-  // full tune.
   //
   void reset_kicker_bunch(int ip, // can be 0, 1, 2 , ...
 			  int coor, // 0 for x, 1 for y
 			  const vector<double>& sigmas,
 			  const vector<double>& weights);
-  
   //
   // "positions[ip][coor]" is a vector of beam positions: it contains the
   // coordinates of the kicker bunch centers at the interaction point "ip"
@@ -125,7 +119,7 @@ struct Mutli_XY_Gaussian_bunches {
   complex<double> field(double x, double y, int ip) const;
   //
   // 3) Betatron oscillation phase at "ip" for X- or Y-coordinate ("coor" = 0
-  //    or 1, respectively),
+  //    or 1, respectively), 0 for ip=0,
   //    exp(2*pi*i * (phase difference between next ip and this)) and
   //    the tune (sum of all phase differences)
   double betatron_ip_phase(int ip, int coor) const { return ip_phase[ip][coor]; }
