@@ -73,14 +73,14 @@ protected:
 };
 
 //
-// Integrals_per_particle and Avr_XY_Per_Turn_Per_Particle - overlap integrals and average
+// Integrals_per_particle and Avr_XY_Per_Particle - overlap integrals and average
 // x+iy coordinates accumulated by one macroparticle during groups of many
 // turns (NO_BB, ADIABATIC, STABILIZATION, BB). Ie. the kicked bunch density
 // is represented in this case by a delta-function concentrated at only one
 // particle which makes, however, many betatron oscillations (many turns).
 //
 template <class T>
-// T = double for Integrals_Per_Particle, complex<double> for Avr_XY_Per_Turn_Per_Particle
+// T = double for Integrals_Per_Particle, complex<double> for Avr_XY_Per_Particle
 struct Per_Particle_Base : protected array<vector<T>, N::PHASES> { // [phase][particle]
   void resize(const N& n);
   void resize(int N_particles);
@@ -94,7 +94,7 @@ struct Per_Particle_Base : protected array<vector<T>, N::PHASES> { // [phase][pa
 struct Integrals_Per_Particle : public Per_Particle_Base<double> {
   static string config_name() { return "integrals.per.particle"; }
 };
-struct Avr_XY_Per_Turn_Per_Particle : public Per_Particle_Base<complex<double> > {
+struct Avr_XY_Per_Particle : public Per_Particle_Base<complex<double> > {
   static string config_name() { return "avr.xy.per.particle"; }
 };
 
@@ -188,7 +188,7 @@ template<> inline bool Output<Integrals_Per_Particle>::always_fill() { return tr
 typedef tuple<Output<Integrals_Per_Turn>,
 	      Output<Avr_XY_Per_Turn>,
 	      Output<Integrals_Per_Particle>,
-	      Output<Avr_XY_Per_Turn_Per_Particle>,
+	      Output<Avr_XY_Per_Particle>,
 	      Output<Points> > Outputs_tuple;
 struct Outputs : public Outputs_tuple {
   Outputs(const N& n, Config& c, string output_dir,
