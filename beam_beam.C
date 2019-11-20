@@ -527,9 +527,6 @@ int main(int argc, char** argv) {
 	       // divide, since kick_average[ip2] = angular_kick * beta_ip2 -
 	       // already multiplied by beta_ip2
 	       sqrt(bb.accelerator_beta(ip2, coor));
-	     if (coor == 0)
-	       cout << ip << " ip2=" << ip2 << " delta_phase=" << delta_phase << " common_f=" << common_factor << " k=" << k << " cos=" << cos(delta_phase-pi_tune) << " sqrt=" << sqrt(bb.accelerator_beta(ip2, coor)) << endl;
-	     
 	}
       }
       output_summary << step << " "
