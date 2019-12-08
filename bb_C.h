@@ -1,14 +1,29 @@
+/*
+  B*B simulation of beam-beam effects in van der Meer scans at LHC.
+  Copyright (C) 2019 Vladislav Balagura (balagura@cern.ch)
+
+  This program is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  This program is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+  ----------------------------------------------------------------------
+
+  Calls B*B simulation from C instead of C++
+
+*/
 #ifndef bb_c_h 
 #define bb_c_h 1
 
 #include <stdbool.h>
 #include "bb_C_CPP.h"
-
-/*
-  B*B simulation of beam-beam effects in van der Meer scans at LHC.
-
-  Author V. Balagura, balagura@cern.ch (Nov 2019)
-*/
 
 struct Multi_Gaussian_C { /* weighted sum of Gaussians with common center */
   int n;

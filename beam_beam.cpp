@@ -1,17 +1,30 @@
 //
-//  B*B simulation of beam-beam effects in van der Meer scans at LHC.
+// B*B simulation of beam-beam effects in van der Meer scans at LHC.
+// Copyright (C) 2019 Vladislav Balagura (balagura@cern.ch)
 //
-//  Author V. Balagura, balagura@cern.ch (Dec 2019)
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// ----------------------------------------------------------------------
+//
+// C++ main program running B*B simulation. Reads the input parameters from
+// the "Config" file specified as the first argument. The results are written
+// to "output_dir". If this parameter is not given, "output_dir" is obtained
+// by dropping .txt from the end of the "Config" file name (an error is
+// produced if in this case it does not have *.txt extension).
 //
 #include <fstream>
 #include "bb_config.hh"
 
-// Runs B*B simulation with the input parameters from the "Config" file
-// specified as the first argument. The results are always stored in
-// "output_dir". If this parameter is not given, "output_dir" is obtained
-// by dropping .txt from the end of the "Config" file name (an error is
-// produced if it does not have *.txt extension).
-//
 int main(int argc, char** argv) {
   string config_file;
   if (argc != 2) {

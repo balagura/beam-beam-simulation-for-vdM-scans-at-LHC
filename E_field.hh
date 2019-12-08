@@ -1,6 +1,21 @@
-#ifndef E_field_hh 
-#define E_field_hh 1
-
+//
+// B*B simulation of beam-beam effects in van der Meer scans at LHC.
+// Copyright (C) 2019 Vladislav Balagura (balagura@cern.ch)
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+// ----------------------------------------------------------------------
+//
 // Bassetti-Erskine beam-beam kick calculation for elliptical and round
 // bunches.
 //
@@ -9,16 +24,10 @@
 // following the logic from VdmBBDeflect to ensure positiveness of the
 // imaginary part of Faddeeva::w() argument (to ensure convergence) and using
 // formulas from the Bassetti-Erskine publication.
+//
+#ifndef E_field_hh 
+#define E_field_hh 1
 
-// The program "check_Bassetti_Erskine/compare_with_VdmBBDeflect.C" cross
-// checks that the results returned by the function below are consistent with
-// "VdmBBDeflect" for N points (eg. 100000) randomly distributed in the ranges
-// specified in "check_Bassetti_Erskine/compare_with_VdmBBDeflect_config.txt".
-//
-// Compile it with "cd check_Bassetti_Erskine; make compare_with_VdmBBDeflect"
-// and run as "compare_with_VdmBBDeflect compare_with_VdmBBDeflect_config.txt"
-//
-// Author V. Balagura, balagura@cern.ch (Nov 2019)
 #include <complex>
 #include "Faddeeva.hh"
 
