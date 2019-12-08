@@ -6,11 +6,11 @@
 #include <string>
 #include <complex>
 #include <iostream>
-#include <interpolators.hh>
+#include "interpolators.hh"
 
 using namespace std;
 
-struct Mutli_XY_Gaussian_bunches {
+struct Multi_XY_Gaussian_bunches {
   // In the following "coor" argument is 0 for X, and 1 for Y;
   // "ip = 0, 1, 2, ..." is the sequantial number of the interaction point,
   // "kicked" denotes the bunch perturbed by the beam-beam interaction,
@@ -28,7 +28,7 @@ struct Mutli_XY_Gaussian_bunches {
   // interaction point, their number can be chosen arbitrarily.
   // ----------------------------------------------------------------------
   //
-  // Functions to create Mutli_XY_Gaussian_bunches object
+  // Functions to create Multi_XY_Gaussian_bunches object
   //
   // The number of Gaussians is determined by the number of elements (Gaussian
   // widths) in the vector "sigmas".  The vector of "weights" should be either
@@ -65,12 +65,6 @@ struct Mutli_XY_Gaussian_bunches {
   // along "coor" axis in the frame where the kicked bunch center is at (0,0)
   //
   void reset_kicker_positions(vector<array<vector<double>, 2> > positions);
-  //
-  // "betatron_phase_over_2pi_at_next_ip[ip][coor]" is the phase/2pi of the
-  // betatron transverse oscillations at the interaction point "ip+1" (or zero
-  // for the last "ip") along X ("coor"=0) or Y ("coor"=1)
-  //
-  void reset_phases(const vector<array<double, 2> >& betatron_phase_over_2pi_at_next_ip);
   // Create bilinear interpolators to speed up density and field
   // calculations. The interpolator for one bunch is reused for all identical
   // bunches at other interaction points.
@@ -78,8 +72,8 @@ struct Mutli_XY_Gaussian_bunches {
   void reset_interpolators(int n_density_cells,
 			   int n_field_cells);
   //
-  // Functions required in the simulation. They encapsulate the phase advances
-  // and everything what dependends on the bunch densities, namely:
+  // Functions required in the simulation. They encapsulate everything that
+  // dependends on the bunch densities, namely:
   //
   // Dependencies on the density of the "kicked" bunch
   // 1) probability density functions of X-X' and Y-Y' radii, not necessarily
@@ -100,10 +94,6 @@ struct Mutli_XY_Gaussian_bunches {
   //
   pair<double, double> r_cut(int ip) const;
   //
-  // 3) beta functions at all IPs along coordinate "coor"
-  //
-  double accelerator_beta(int ip, int coor);
-  //
   // Dependent on kicker bunch(es), ie. on the source of the electrostatic
   // field:
   // 1) kicker bunch density function
@@ -117,14 +107,6 @@ struct Mutli_XY_Gaussian_bunches {
   // calculates the field directly, otherwise it uses bilinear interpolation
   // which is much faster for elliptical or multi-Gaussian bunches
   complex<double> field(double x, double y, int ip) const;
-  //
-  // 3) Betatron oscillation phase at "ip" for X- or Y-coordinate ("coor" = 0
-  //    or 1, respectively), 0 for ip=0,
-  //    exp(2*pi*i * (phase difference between next ip and this)) and
-  //    the tune (sum of all phase differences)
-  double betatron_ip_phase(int ip, int coor) const { return ip_phase[ip][coor]; }
-  complex<double> exp_i_next_ip_phase_minus_this(int ip, int coor) const;
-  double accelerator_tune(int coor) const { return tune[coor]; }
   //
   // 4) number of interaction points
   int n_ip() const;
@@ -236,9 +218,6 @@ protected:
   };
   vector<BI> bis;
   vector<array<double, 2> > beta; // beta[ip][0/1 for x/y]
-  array<double, 2> tune;
-  vector<array<double, 2> > ip_phase; // starts from 0 at ip=0
-  vector<array<complex<double>, 2> > exp_i_next_dphase; // [ip][coor]
 };
 
 #endif

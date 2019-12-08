@@ -12,7 +12,7 @@
 #include <sstream>
 #include <algorithm>
 #include <numeric>
-#include <config.hh>
+#include "config.hh"
 #include <boost/filesystem.hpp> // to mkdir output subdirectory
 #include <boost/iostreams/filtering_stream.hpp>
 #include <boost/iostreams/device/file.hpp> // file_sink()

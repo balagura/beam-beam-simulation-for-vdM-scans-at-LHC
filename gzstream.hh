@@ -17,7 +17,7 @@
 // Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 // ============================================================================
 //
-// File          : gzstream.h
+// File          : gzstream.hh
 // Revision      : $Revision: 1.5 $
 // Revision_date : $Date: 2002/04/26 23:30:15 $
 // Author(s)     : Deepak Bandyopadhyay, Lutz Kettner
@@ -26,8 +26,8 @@
 // Standard C++ Library".
 // ============================================================================
 
-#ifndef GZSTREAM_H
-#define GZSTREAM_H 1
+#ifndef GZSTREAM_HH
+#define GZSTREAM_HH 1
 
 // standard C++ with new header file names and std:: namespace
 #include <iostream>

@@ -12,9 +12,8 @@
 #include <complex>
 #include <atomic>
 #include <memory> // for unique_ptr
-#include <gzstream.h>
-#include <config.hh>
-#include <n.hh>
+#include "gzstream.hh"
+#include "bb.hh"
 
 using namespace std;
 
@@ -23,8 +22,7 @@ using namespace std;
 // Integrals_Per_Turn accumulate overlap integrals per turn
 //
 struct Integrals_Per_Turn {
-  void resize(const N& n);
-  void resize(int N_turns);
+  void resize(int n_turns);
   bool empty();
   void add(int i_turn, double add);
   const vector<double>& integ();
@@ -57,8 +55,7 @@ protected:
 //
 // Avr_XY_Per_Turn - accumulate x+iy complex coordinate of the kicked bunch center-of-mass
 struct Avr_XY_Per_Turn {
-  void resize(const N& n);
-  void resize(int N_turns);
+  void resize(int n_turns);
   bool empty();
   //
   void init(double max_xy_radius, int n_points); // sets atomic_avr_xy_converter
@@ -81,13 +78,12 @@ protected:
 //
 template <class T>
 // T = double for Integrals_Per_Particle, complex<double> for Avr_XY_Per_Particle
-struct Per_Particle_Base : protected array<vector<T>, N::PHASES> { // [phase][particle]
-  void resize(const N& n);
-  void resize(int N_particles);
+struct Per_Particle_Base : protected array<vector<T>, PHASES> { // [phase][particle]
+  void resize(int n_points);
   bool empty();
   void add(int phase, int particle, T add);
-  void normalize_by_n_turns(int N_turns, int phase, int particle); // parallelized, so per particle
-  array<T, N::PHASES> weighted_average(const vector<double>& particle_weights);
+  void normalize_by_n_turns(int n_turns, int phase, int particle); // parallelized, so per particle
+  array<T, PHASES> weighted_average(const vector<double>& particle_weights);
   void write(ostream& os, const string& prefix);
   static string config_name();
 };
@@ -106,10 +102,9 @@ struct Avr_XY_Per_Particle : public Per_Particle_Base<complex<double> > {
 // many threads would block them, this dictates storing large v_points in
 // memory.
 struct Points : protected vector<vector<array<complex<double>, 2> > > { // [turn][particle][0/1 for x/y]
-  void resize(const N& n);
-  void resize(int N_turns_stored,
-	      int N_particles,
-	      int N_selected_turns);
+  void resize(int n_points,
+	      int n_turns,
+	      int select_one_turn_out_of);
   using vector<vector<array<complex<double>, 2> > >::empty;
   void add(int turn, int particle, complex<double> xZ, complex<double> yZ);
   void write(ostream& os, const string& prefix);
@@ -120,26 +115,17 @@ protected:
 
 //
 // Create a vector of the classes above (denoted generically as class Data)
-// and add two boolean flags: whether the corresponding data should be written
-// out (bool write_i, per interaction point) and, if not, should it still be
-// processed (bool always_fill). The latter is intended for
-// Integrals_Per_Particle class which is used to calculate the final beam-beam
-// corrections and, therefore, should be processed in any case.
+// and a boolean flag write_it controlling whether the corresponding data
+// should be written out.
 //
 template<class Data>
 struct Output {
-  struct Data_Write_It : public Data {
-    bool write_it;
-    Data_Write_It() : write_it(false) {}
-  };
-  vector<Data_Write_It> data; // [ip]
+  Output() : write_it(false) {}
+  vector<Data> data; // [ip]
+  bool write_it;
   ogzstream file;
-  static bool always_fill() { return false; }
   static string config_name() { return Data::config_name(); }
 };
-// partial specialization for Integrals_Per_Particle class
-template<> inline bool Output<Integrals_Per_Particle>::always_fill() { return true; }
-
 //
 // Main class: std::tuple<...> of everything above.
 //
@@ -191,9 +177,15 @@ typedef tuple<Output<Integrals_Per_Turn>,
 	      Output<Avr_XY_Per_Particle>,
 	      Output<Points> > Outputs_tuple;
 struct Outputs : public Outputs_tuple {
-  Outputs(const N& n, Config& c, string output_dir,
-	  double max_xy_radius); // for double <-> llong int converter in Avr_XY_Per_Turn
-  void reset(const N& n);
+  Outputs(int n_ip,
+	  int n_points,
+	  double max_xy_radius,
+	  const string& output_options, // white-space separated list of options
+	  const string& output_dir); // for double <-> llong int converter in Avr_XY_Per_Turn
+  void reset(int n_ip,
+	     int n_points,
+	     int n_turns,
+	     int select_one_turn_out_of);
   void write(int step);
   // access to tuple individual components
   template<class T> T&   get      (int ip) { return std::get<Output<T> >(*this).data[ip]; }
@@ -203,13 +195,11 @@ struct Outputs : public Outputs_tuple {
 
 // ------------------------------------------------------------
 //
-// Per_Particle_Base<T> = array<vector<T>, N::PHASES>  [phase][particle]
+// Per_Particle_Base<T> = array<vector<T>, PHASES>  [phase][particle]
 //
 template <class T>
-void Per_Particle_Base<T>::resize(const N& n) { resize(n.points()); }
-template <class T>
-void Per_Particle_Base<T>::resize(int N_particles) {
-  for (int phase=0; phase<N::PHASES; ++phase) (*this)[phase].assign(N_particles, 0.); // 0+i0 for complex
+void Per_Particle_Base<T>::resize(int n_points) {
+  for (int phase=0; phase<PHASES; ++phase) (*this)[phase].assign(n_points, 0.); // 0+i0 for complex
 }
 template <class T>
 bool Per_Particle_Base<T>::empty() { return (*this)[0].empty(); }
@@ -219,15 +209,15 @@ void Per_Particle_Base<T>::add(int phase, int particle, T add) {
   (*this)[phase][particle] += add;
 }
 template <class T>
-void Per_Particle_Base<T>::normalize_by_n_turns(int N_turns, int phase, int particle) {
+void Per_Particle_Base<T>::normalize_by_n_turns(int n_turns, int phase, int particle) {
   // parallelized, so per particle
-  (*this)[phase][particle] /= N_turns;
+  (*this)[phase][particle] /= n_turns;
 }
 template <class T>
-array<T, N::PHASES> Per_Particle_Base<T>::weighted_average(const vector<double>& particle_weights) {
-  array<T, N::PHASES> avr;
+array<T, PHASES> Per_Particle_Base<T>::weighted_average(const vector<double>& particle_weights) {
+  array<T, PHASES> avr;
   fill(avr.begin(), avr.end(), 0.);
-  for (int phase=0; phase<N::PHASES; ++phase) {
+  for (int phase=0; phase<PHASES; ++phase) {
     const vector<T>& v = (*this)[phase];
     T& a = avr[phase];
     for (size_t i=0; i<v.size(); ++i) a += particle_weights[i] * v[i];
@@ -244,10 +234,10 @@ inline bool isnan(complex<double> x) { return isnan(real(x)) || isnan(imag(x)); 
 //
 template <class T>
 void Per_Particle_Base<T>::write(ostream& os, const string& prefix) {
-  for (int phase=0; phase<N::PHASES; ++phase) {
+  for (int phase=0; phase<PHASES; ++phase) {
     for (size_t i = 0; i < (*this)[phase].size(); ++i) {
       T x = (*this)[phase][i];
-      if (!isnan(x)) { // if in some phase N_turn=0, normalization to such N_turns gives nan
+      if (!isnan(x)) { // if in some phase n_turn=0, normalization to such n_turns gives nan
 	os << prefix << " " << phase << " "  << i << " ";
 	dump(os, x);
 	os << '\n';

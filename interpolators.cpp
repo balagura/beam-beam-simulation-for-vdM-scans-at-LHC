@@ -1,4 +1,4 @@
-#include <interpolators.hh>
+#include "interpolators.hh"
 #include <cmath> // for floor()
 #include <algorithm> // for max
 #include <iostream>

@@ -382,7 +382,7 @@ kick.model = precise
 #                           Format: step ip phase i.particle avr.x avr.y
 #
 
-#   "points"  the traced positions of the kicked bunch particles after
+#   "points"  the traced positions of the kicked bunch particles before
 #             accelerator "i.turn", note, this file might be very long.
 #             Format: step ip i.turn i.particle X X' Y Y'
 #
@@ -419,9 +419,9 @@ output.3 = integrals.per.turn integrals.per.particle avr.xy.per.particle
 output.4 = integrals.per.turn integrals.per.particle avr.xy.per.particle
 
 # Storage of the traced particle positions (if the output option "points"
-# above is specified) after every accelerator turn might require too much disk
+# above is specified) before every accelerator turn might require too much disk
 # space. Instead, one can "select.one.turn.out.of" N turns.  Eg. if this
-# parameter is set to 1000, only the positions after i.turn = 999, 1999, 2999,
+# parameter is set to 1000, only the positions before i.turn = 999, 1999, 2999,
 # ...  (counting from zero) will be stored. If "points" option is not
 # requested in "output", "select.one.turn.out.of" has no effect.
 #

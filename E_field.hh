@@ -18,8 +18,9 @@
 // Compile it with "cd check_Bassetti_Erskine; make compare_with_VdmBBDeflect"
 // and run as "compare_with_VdmBBDeflect compare_with_VdmBBDeflect_config.txt"
 //
+// Author V. Balagura, balagura@cern.ch (Nov 2019)
 #include <complex>
-#include <Faddeeva.hh>
+#include "Faddeeva.hh"
 
 using namespace std;
 

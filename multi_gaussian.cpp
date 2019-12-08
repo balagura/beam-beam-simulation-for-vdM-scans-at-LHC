@@ -1,14 +1,14 @@
-#include <multi_gaussian.hh>
 #include <algorithm>
 #include <numeric>
 #include <map>
 #include <limits>
 //#include <functional> // for placeholders
-#include <E_field.hh>
+#include "multi_gaussian.hh"
+#include "E_field.hh"
 
 // set Gaussian sigmas, weights and check their consistency
 // (empty input "weights" vector means this parameter is not given)
-string Mutli_XY_Gaussian_bunches::MultiG_SigSq::reset(const vector<double>& sigmas,
+string Multi_XY_Gaussian_bunches::MultiG_SigSq::reset(const vector<double>& sigmas,
 						      const vector<double>& weights) {
   if (sigmas.empty()) return "vector of Gaussian sigmas is empty";
   sig = sigmas;
@@ -36,7 +36,7 @@ string Mutli_XY_Gaussian_bunches::MultiG_SigSq::reset(const vector<double>& sigm
   return "";
 }
 // Kicked_MultiG functions
-string Mutli_XY_Gaussian_bunches::Kicked_MultiG::reset(const vector<double>& sigmas,
+string Multi_XY_Gaussian_bunches::Kicked_MultiG::reset(const vector<double>& sigmas,
 						       const vector<double>& weights,
 						       double n_sig_cut) {
   string err = MultiG_SigSq::reset(sigmas, weights);
@@ -44,7 +44,7 @@ string Mutli_XY_Gaussian_bunches::Kicked_MultiG::reset(const vector<double>& sig
   find_cut(n_sig_cut);
   return "";
 }
-void Mutli_XY_Gaussian_bunches::Kicked_MultiG::find_cut(double n_sig_cut) {
+void Multi_XY_Gaussian_bunches::Kicked_MultiG::find_cut(double n_sig_cut) {
   //
   // For a single Gaussian case of the first bunch, X-X' and Y-Y' circles
   // with radii beyond n_sig_cut ("N.sigma.cut" in the configuration file)
@@ -100,7 +100,7 @@ void Mutli_XY_Gaussian_bunches::Kicked_MultiG::find_cut(double n_sig_cut) {
     cut = middle;
   }
 }
-double Mutli_XY_Gaussian_bunches::Kicked_MultiG::not_normalized_r_density(double r) const {
+double Multi_XY_Gaussian_bunches::Kicked_MultiG::not_normalized_r_density(double r) const {
   // distribution of radius length for eg. X-X' 2D Gaussian:
   //
   // exp(-r^2/2/sig^2) * r / sig^2 dr
@@ -119,9 +119,9 @@ double Mutli_XY_Gaussian_bunches::Kicked_MultiG::not_normalized_r_density(double
   return d;
 }
 // Kicker_MultiG functions
-string Mutli_XY_Gaussian_bunches::Kicker_MultiG::reset(const vector<double>& sigmas,
+string Multi_XY_Gaussian_bunches::Kicker_MultiG::reset(const vector<double>& sigmas,
 						       const vector<double>& weights) {
-  string err = Mutli_XY_Gaussian_bunches::MultiG_SigSq::reset(sigmas, weights);
+  string err = Multi_XY_Gaussian_bunches::MultiG_SigSq::reset(sigmas, weights);
   if (err != "") return err;
   exp_w.resize(w.size());
   for (size_t i=0; i<exp_w.size(); ++i) {
@@ -129,16 +129,16 @@ string Mutli_XY_Gaussian_bunches::Kicker_MultiG::reset(const vector<double>& sig
   }
   return "";
 }
-void Mutli_XY_Gaussian_bunches::Kicker_MultiG::reset_positions(const vector<double>& positions) {
+void Multi_XY_Gaussian_bunches::Kicker_MultiG::reset_positions(const vector<double>& positions) {
   position = positions;
 }
-double Mutli_XY_Gaussian_bunches::Kicker_MultiG::density(double x) const {
+double Multi_XY_Gaussian_bunches::Kicker_MultiG::density(double x) const {
   double prob = 0;
   for (size_t i=0; i<sig.size(); ++i) prob += exp_w[i] * g(x / sig[i]);
   return prob;
 }
 //
-void Mutli_XY_Gaussian_bunches::reset_kicked_bunch(int ip, // Gaussian widths at different ip2 will
+void Multi_XY_Gaussian_bunches::reset_kicked_bunch(int ip, // Gaussian widths at different ip2 will
 						   // be calculated as
 						   // sigmas * sqrt(beta_at_ips(ip2)/beta_at_ips(ip))
 						   int coor, // 0 for x, 1 for y
@@ -163,8 +163,8 @@ void Mutli_XY_Gaussian_bunches::reset_kicked_bunch(int ip, // Gaussian widths at
     exit(1);
   }
 }
-void Mutli_XY_Gaussian_bunches::reset_ip_number(int n_ip) { kicker.resize(n_ip); }
-void Mutli_XY_Gaussian_bunches::reset_kicker_bunch(int ip, // can be 0, 1, 2 , ...
+void Multi_XY_Gaussian_bunches::reset_ip_number(int n_ip) { kicker.resize(n_ip); }
+void Multi_XY_Gaussian_bunches::reset_kicker_bunch(int ip, // can be 0, 1, 2 , ...
 						   int coor, // 0 for x, 1 for y
 						   const vector<double>& sigmas,
 						   const vector<double>& weights) {
@@ -174,13 +174,13 @@ void Mutli_XY_Gaussian_bunches::reset_kicker_bunch(int ip, // can be 0, 1, 2 , .
     exit(1);
   }
 }
-void Mutli_XY_Gaussian_bunches::reset_kicker_positions(vector<array<vector<double>, 2> > positions) {
-  // Require that the number of beam separations per IP and coordinate is either one or maximal
+void Multi_XY_Gaussian_bunches::reset_kicker_positions(vector<array<vector<double>, 2> > positions) {
   if (kicker.size() != positions.size()) {
     cerr << "Positions are given for the wrong number of IPs (" << positions.size()
 	 << ", expected " << kicker.size() << ")\n";
     exit(1);
   }
+  // Require that the number of beam separations per IP and coordinate is either one or maximal
   size_t n_max = 0;
   for (int ip=0; ip<kicker.size(); ++ip) {
     const auto& x = positions[ip];
@@ -202,24 +202,7 @@ void Mutli_XY_Gaussian_bunches::reset_kicker_positions(vector<array<vector<doubl
     }
   }
 }
-void Mutli_XY_Gaussian_bunches::reset_phases(const vector<array<double, 2> >&
-					     betatron_phase_over_2pi_at_next_ip) {
-  ip_phase.resize(betatron_phase_over_2pi_at_next_ip.size());
-  exp_i_next_dphase.resize(ip_phase.size());
-  for (size_t coor=0; coor<2; ++coor) {
-    tune[coor] = 0;
-    for (size_t ip=0; ip<ip_phase.size(); ++ip) {
-      double
-	curr = (ip == 0) ? 0 : betatron_phase_over_2pi_at_next_ip[ip-1][coor],
-	next =                 betatron_phase_over_2pi_at_next_ip[ip  ][coor];
-      ip_phase[ip][coor] = curr * 2 * M_PI;
-      double delta = next - curr;
-      tune[coor] += delta;
-      exp_i_next_dphase[ip][coor] = exp(2i * M_PI * delta);
-    }
-  }
-}
-ostream& operator<<(ostream& os, const Mutli_XY_Gaussian_bunches::MultiG& x) {
+ostream& operator<<(ostream& os, const Multi_XY_Gaussian_bunches::MultiG& x) {
   os << "sigma (weight) = ";
   for (size_t i=0; i<x.sig.size(); ++i) {
     os << x.sig[i] << " (" << x.w[i] << ")";
@@ -227,11 +210,11 @@ ostream& operator<<(ostream& os, const Mutli_XY_Gaussian_bunches::MultiG& x) {
   }
   return os;
 }
-bool operator<(const Mutli_XY_Gaussian_bunches::MultiG& a, const Mutli_XY_Gaussian_bunches::MultiG& b) {
+bool operator<(const Multi_XY_Gaussian_bunches::MultiG& a, const Multi_XY_Gaussian_bunches::MultiG& b) {
   return a.sig < b.sig || (a.sig == b.sig && a.w < b.w);
   // vectors and arrays are compared by default lexicographically
 }
-void Mutli_XY_Gaussian_bunches::reset_interpolators(int n_density_cells,
+void Multi_XY_Gaussian_bunches::reset_interpolators(int n_density_cells,
 						    int n_field_cells) {
   if (n_density_cells > 0) {
     // group identical X or Y kicker bunch ditributions into a map
@@ -332,18 +315,17 @@ void Mutli_XY_Gaussian_bunches::reset_interpolators(int n_density_cells,
     }
   }
 }
-double Mutli_XY_Gaussian_bunches::not_normalized_r_kicked_density(int coor, double r, int ip) const {
+double Multi_XY_Gaussian_bunches::not_normalized_r_kicked_density(int coor, double r, int ip) const {
   // "kicked" is stored internally with sigmas corresponding to "ip"=0, rescale "r" also to ip=0:
   r *= sqrt(beta[0][coor] / beta[ip][coor]);
   return kicked[coor].not_normalized_r_density(r);
 }
-pair<double, double> Mutli_XY_Gaussian_bunches::r_cut(int ip) const {
+pair<double, double> Multi_XY_Gaussian_bunches::r_cut(int ip) const {
   // rescale from ip=0
   return make_pair(sqrt(beta[ip][0] / beta[0][0]) * kicked[0].cut,
 		   sqrt(beta[ip][1] / beta[0][1]) * kicked[1].cut);
 }
-double Mutli_XY_Gaussian_bunches::accelerator_beta(int ip, int coor) { return beta[ip][coor]; }
-double Mutli_XY_Gaussian_bunches::kicker_density(double x, double y, int ip) const {
+double Multi_XY_Gaussian_bunches::kicker_density(double x, double y, int ip) const {
   const auto& k = kicker[ip];
   if (k[0].li_density == nullptr) {
     return k[0].density(x) * k[1].density(y);
@@ -351,7 +333,7 @@ double Mutli_XY_Gaussian_bunches::kicker_density(double x, double y, int ip) con
     return (*k[0].li_density)(x) * (*k[1].li_density)(y);
   }
 }
-complex<double> Mutli_XY_Gaussian_bunches::field(double x, double y, int ip) const {
+complex<double> Multi_XY_Gaussian_bunches::field(double x, double y, int ip) const {
   const auto& k = kicker[ip];
   if (k.bi_field == nullptr) {
     return k.field(x, y);
@@ -359,7 +341,7 @@ complex<double> Mutli_XY_Gaussian_bunches::field(double x, double y, int ip) con
     return (*k.bi_field)(x, y);
   }
 }
-complex<double> Mutli_XY_Gaussian_bunches::Kicker_MultiG_XY::field(double x, double y) const {
+complex<double> Multi_XY_Gaussian_bunches::Kicker_MultiG_XY::field(double x, double y) const {
   const MultiG_SigSq &x2 = (*this)[0], &y2 = (*this)[1];
   complex<double> E = 0;
   for (size_t ix2=0; ix2<x2.sig.size(); ++ix2) {
@@ -370,19 +352,16 @@ complex<double> Mutli_XY_Gaussian_bunches::Kicker_MultiG_XY::field(double x, dou
   }
   return E;
 }
-complex<double> Mutli_XY_Gaussian_bunches::exp_i_next_ip_phase_minus_this(int ip, int coor) const {
-  return exp_i_next_dphase[ip][coor];
-}
-int Mutli_XY_Gaussian_bunches::n_ip() const { return kicker.size(); }
-const vector<double>& Mutli_XY_Gaussian_bunches::kicker_positions(int ip, int coor) const {
+int Multi_XY_Gaussian_bunches::n_ip() const { return kicker.size(); }
+const vector<double>& Multi_XY_Gaussian_bunches::kicker_positions(int ip, int coor) const {
   return kicker[ip][coor].position;
 }
-bool Mutli_XY_Gaussian_bunches::is_density_interpolated() { return !lis.empty(); }
+bool Multi_XY_Gaussian_bunches::is_density_interpolated() { return !lis.empty(); }
 // check bis[0] only, others should be the same since the interpolation is
 // switched on/off for all IPs at once
-bool Mutli_XY_Gaussian_bunches::is_field_interpolated  () { return !bis.empty(); }
+bool Multi_XY_Gaussian_bunches::is_field_interpolated  () { return !bis.empty(); }
 vector<array<pair<double, double>, 2> >
-Mutli_XY_Gaussian_bunches::max_and_average_interpolation_mismatches_relative_to_max_density(int n_random_points) {
+Multi_XY_Gaussian_bunches::max_and_average_interpolation_mismatches_relative_to_max_density(int n_random_points) {
   vector<array<pair<double, double>, 2> > res(kicker.size());
   for (const auto& x: lis) {
     pair<double, double> p =
@@ -392,7 +371,7 @@ Mutli_XY_Gaussian_bunches::max_and_average_interpolation_mismatches_relative_to_
   return res;
 }
 vector<pair<double, double> >
-Mutli_XY_Gaussian_bunches::max_and_average_interpolation_mismatches_relative_to_max_field(int n_random_points) {
+Multi_XY_Gaussian_bunches::max_and_average_interpolation_mismatches_relative_to_max_field(int n_random_points) {
   vector<pair<double, double> > res(kicker.size());
   for (const auto& x: bis) {
     pair<double, double> p =
@@ -401,7 +380,7 @@ Mutli_XY_Gaussian_bunches::max_and_average_interpolation_mismatches_relative_to_
   }
   return res;
 }
-complex<double> Mutli_XY_Gaussian_bunches::field_averaged_over_kicked_bunch(double x, double y, int ip) const {
+complex<double> Multi_XY_Gaussian_bunches::field_averaged_over_kicked_bunch(double x, double y, int ip) const {
   complex<double> E = 0;
   const MultiG_SigSq &x1 = kicked[0], &y1 = kicked[1], &x2 = kicker[ip][0], &y2 = kicker[ip][1];
   // scale squared sigmas from IP=0 to IP="ip"
@@ -428,7 +407,7 @@ complex<double> Mutli_XY_Gaussian_bunches::field_averaged_over_kicked_bunch(doub
   }
   return E;
 }
-double Mutli_XY_Gaussian_bunches::overlap_integral(double x, double y, int ip) const {
+double Multi_XY_Gaussian_bunches::overlap_integral(double x, double y, int ip) const {
   double o = 0;
   double x_sq = x*x, y_sq = y*y;
   const MultiG_SigSq &x1 = kicked[0], &y1 = kicked[1], &x2 = kicker[ip][0], &y2 = kicker[ip][1]; 

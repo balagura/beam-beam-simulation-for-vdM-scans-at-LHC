@@ -1,6 +1,6 @@
 // Author V. Balagura, balagura@cern.ch (07.01.2019)
 
-#include <config.hh>
+#include "config.hh"
 #include <sstream>
 #include <algorithm>
 #include <cstdlib>
