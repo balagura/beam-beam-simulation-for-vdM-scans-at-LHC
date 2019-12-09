@@ -623,7 +623,7 @@ void beam_beam(const Kicked& kicked, const Kickers& kickers, const Sim& sim,
 		       << s.no_bb_numeric_over_analytic_integ << " "
 		       << s.no_bb_numeric_over_analytic_integ_err << " "
 		       << s.no_bb_avr_numeric[0] << " "
-		       << s.no_bb_avr_numeric[1] << " ";
+		       << s.no_bb_avr_numeric[1] << " "
 		       << s.avr_analytic[0] << " "
 		       << s.avr_analytic[1] << " "
 		       << s.avr_numeric[0] << " "
