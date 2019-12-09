@@ -622,12 +622,12 @@ void beam_beam(const Kicked& kicked, const Kickers& kickers, const Sim& sim,
 		       << s.no_bb_analytic_integ << " "
 		       << s.no_bb_numeric_over_analytic_integ << " "
 		       << s.no_bb_numeric_over_analytic_integ_err << " "
+		       << s.no_bb_avr_numeric[0] << " "
+		       << s.no_bb_avr_numeric[1] << " ";
 		       << s.avr_analytic[0] << " "
 		       << s.avr_analytic[1] << " "
 		       << s.avr_numeric[0] << " "
-		       << s.avr_numeric[1] << " "
-		       << s.no_bb_avr_numeric[0] << " "
-		       << s.no_bb_avr_numeric[1] << "\n";
+		       << s.avr_numeric[1] << "\n";
       }
     }
     if (!quiet) cout << " done" << endl;
@@ -667,12 +667,15 @@ void beam_beam(const Kicked& kicked, const Kickers& kickers, const Sim& sim,
   }
   if (!quiet && output_dir != "") {
     cout << "\nResults are written to " << output_dir << " directory.\n\n"
-	 << "The summary appears in \"summary.txt\" in the format:\n"
+	 << "The summary is in \"summary.txt\" in the format:\n"
 	 << "<step> <IP> <beam-beam/no beam-beam luminosity correction>\n"
-	 << "no beam-beam: <analytic> overlap integral, <numeric over anaytic> ratio and <its error> \n"
-	 << "(note, error = \"nan\" if \"integrals.per.turn\" option is not requested in \"output\")\n"
-	 << "numerically calculated <X>, <Y> center-of-mass shift of the kicked bunch without beam-beam\n"
-	 << "(should be zero) and <X>, <Y> shift with beam-beam (\"nan\" if \"avr.xy.per.particle\" was\n"
-	 << "not requested in \"output\"), the same shift calculated for <X> and <Y> analytically.\n\n";
+	 << "no beam-beam: <analytic> overlap, <numeric/analytic ratio> and <its error>\n"
+	 << "no beam-beam:    <X>, <Y> numeric center-of-mass shift\n"
+	 << "beam-beam shift: <X>, <Y> analytic, <X>, <Y> numeric\n\n"
+	 << "No beam-beam numeric/analytic error is roughly estimated from turn-by-turn variations,\n"
+	 << "available only if \"integrals.per.turn\" option is set in \"output\".\n"
+	 << "Otherwise this error is set to \"nan\". Similarly, numeric <X>, <Y> shifts are calculated\n"
+	 << "only if \"avr.xy.per.particle\" option is chosen, and set to \"nan\" otherwise.\n"
+	 << "Without beam-beam these shifts should be close to zero.\n";
   }
 }

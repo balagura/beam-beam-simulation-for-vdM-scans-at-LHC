@@ -47,9 +47,9 @@ Summary = namedtuple("Summary",
                       "no_bb_analytic_integ",
                       "no_bb_numeric_over_analytic_integ",
                       "no_bb_numeric_over_analytic_integ_err",
+                      "no_bb_avr_numeric",
                       "avr_analytic",
-                      "avr_numeric",
-                      "no_bb_avr_numeric"])
+                      "avr_numeric"])
 
 # ---------- C structures ----------
 class _C_Multi_Gaussian(Structure) :
@@ -91,9 +91,9 @@ class _C_Summary(Structure) :
              ("no_bb_analytic_integ", c_double),
              ("no_bb_numeric_over_analytic_integ", c_double),
              ("no_bb_numeric_over_analytic_integ_err", c_double),
+             ("no_bb_avr_numeric", c_double*2),
              ("avr_analytic", c_double*2),
-             ("avr_numeric", c_double*2),
-             ("no_bb_avr_numeric", c_double*2)]
+             ("avr_numeric", c_double*2)]
 
 
 # -------------------- Helper functions to fill C structures --------------------
@@ -114,9 +114,9 @@ def _python_summary(s) :
                 s.no_bb_analytic_integ,
                 s.no_bb_numeric_over_analytic_integ,
                 s.no_bb_numeric_over_analytic_integ_err,
+                s.no_bb_avr_numeric,
                 s.avr_analytic,
-                s.avr_numeric,
-                s.no_bb_avr_numeric)
+                s.avr_numeric)
 
 # -------------------- C functions --------------------
 _bb_c = CDLL("./BxB_python.so")
