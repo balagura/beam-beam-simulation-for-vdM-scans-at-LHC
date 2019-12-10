@@ -16,7 +16,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 # ----------------------------------------------------------------------
 #
-# BxB_python is needed for python binding
+# libBxB is needed for python binding and for beam_beam() calls in C++
 #
 # beam_beam is a standalone C++ simulation reading input parameters from
 # "Config" file
@@ -25,14 +25,14 @@
 # case of single IP, round single Gaussian bunches
 #
 #
-all: BxB_python.so \
+all: libBxB.so \
      beam_beam \
      beam_beam_model_validation
 
 beam_beam : beam_beam.o bb_config.o bb.o config.o multi_gaussian.o interpolators.o output.o Faddeeva.o gzstream.o
 	g++ -O2 -fPIC $^ -o $@ -lz -pthread
 
-BxB_python.so : bb_C.o bb.o multi_gaussian.o interpolators.o output.o Faddeeva.o gzstream.o
+libBxB.so : bb_C.o bb.o multi_gaussian.o interpolators.o output.o Faddeeva.o gzstream.o
 	g++ -O2 -fPIC -shared $^ -o $@ -lz -pthread
 
 bb_C.o: bb_C.cpp bb_C.h bb_C_CPP.h bb.hh
