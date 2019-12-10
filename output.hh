@@ -41,7 +41,7 @@ struct Integrals_Per_Turn {
   void add(int i_turn, double add);
   const vector<double>& integ();
   void write(ostream& os, const string& prefix);
-  static string config_name() { return "integrals.per.turn"; }
+  static string name() { return "integrals_per_turn"; }
 protected:
   vector<double> double_integ;
   bool double_converted;
@@ -75,7 +75,7 @@ struct Avr_XY_Per_Turn {
   void init(double max_xy_radius, int n_points); // sets atomic_avr_xy_converter
   void add(int i_turn, complex<double> add);
   void write(ostream& os, const string& prefix);
-  static string config_name() { return "avr.xy.per.turn"; }
+  static string name() { return "avr_xy_per_turn"; }
   Avr_XY_Per_Turn() : size(0), atomic_avr_xy_converter(0) {}
 protected:
   unique_ptr<atomic<long long int>[]> atomic_avr_x, atomic_avr_y;
@@ -99,13 +99,13 @@ struct Per_Particle_Base : protected array<vector<T>, PHASES> { // [phase][parti
   void normalize_by_n_turns(int n_turns, int phase, int particle); // parallelized, so per particle
   array<T, PHASES> weighted_average(const vector<double>& particle_weights);
   void write(ostream& os, const string& prefix);
-  static string config_name();
+  static string name();
 };
 struct Integrals_Per_Particle : public Per_Particle_Base<double> {
-  static string config_name() { return "integrals.per.particle"; }
+  static string name() { return "integrals_per_particle"; }
 };
 struct Avr_XY_Per_Particle : public Per_Particle_Base<complex<double> > {
-  static string config_name() { return "avr.xy.per.particle"; }
+  static string name() { return "avr_xy_per_particle"; }
 };
 
 // Points store raw 4D coordinates for selected turns in
@@ -122,7 +122,7 @@ struct Points : protected vector<vector<array<complex<double>, 2> > > { // [turn
   using vector<vector<array<complex<double>, 2> > >::empty;
   void add(int turn, int particle, complex<double> xZ, complex<double> yZ);
   void write(ostream& os, const string& prefix);
-  static string config_name() { return "points"; }
+  static string name() { return "points"; }
 protected:
   int n_selected_turns;
 };
@@ -138,7 +138,7 @@ struct Output {
   vector<Data> data; // [ip]
   bool write_it;
   ogzstream file;
-  static string config_name() { return Data::config_name(); }
+  static string name() { return Data::name(); }
 };
 //
 // Main class: std::tuple<...> of everything above.
