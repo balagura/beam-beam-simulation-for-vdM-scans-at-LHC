@@ -342,20 +342,21 @@ void beam_beam(const Kicked& kicked, const Kickers& kickers, const Sim& sim,
       }
       exit(1);
     }
-    ogzstream os((output_dir + "/rx_ry_weights.txt.gz").c_str());
-    os << scientific; // change to scientific format for doubles
+    ogzstream output_rx_ry_weights((output_dir + "/rx_ry_weights.txt.gz").c_str());
+    output_rx_ry_weights << scientific; // change to scientific format for doubles
     for (int ip = 0; ip < n_ip; ++ip) {
       double beta_scale_x =sqrt(kicked.beta[0][ip] / kicked.beta[0][0]);
       double beta_scale_y =sqrt(kicked.beta[1][ip] / kicked.beta[1][0]);
       for (size_t i = 0; i < n_points; ++i) {
-	os << i << " "
-	   << ip << " "
-	   << rx[i] * beta_scale_x << " "
-	   << ry[i] * beta_scale_y << " "
-	   << w[i]<< '\n';
+	output_rx_ry_weights << i << " "
+			     << ip << " "
+			     << rx[i] * beta_scale_x << " "
+			     << ry[i] * beta_scale_y << " "
+			     << w[i]<< '\n';
       }
     }
     ofstream output_kicker_positions(output_dir + "/kicker_positions.txt");
+    output_kicker_positions << scientific;  // change to scientific format for doubles
     for (int step=0; step<n_step; ++step) {
       for (int ip=0; ip<n_ip; ++ip) {
 	output_kicker_positions << step << " " << ip << " "
@@ -363,8 +364,35 @@ void beam_beam(const Kicked& kicked, const Kickers& kickers, const Sim& sim,
 				<< bb.kicker_positions(ip, 1)[step] << "\n";
       }
     }
+    int n_random = sim.n_random_points_to_check_interpolation;
+    if ( (bb.is_density_interpolated() || bb.is_field_interpolated()) &&
+	 n_random > 0) {
+      // check the precision of the interpolation by measuring the absolute
+      // mismatches with the exact density/field values at randomly distributed
+      // points inside the interpolation grid
+      ofstream output_interp(output_dir + "/interpolation_precision.txt");
+      output_interp << scientific;  // change to scientific format for doubles
+      if (bb.is_density_interpolated()) {
+	vector<array<pair<double, double>, 2> > v =
+	  bb.max_and_average_interpolation_mismatches_relative_to_max_density(n_random);
+	output_interp << "Max and average |precise - interpolated| density mismatches normalized to max density at\n";
+	for (int ip=0; ip<v.size(); ++ip) {
+	  output_interp << "    IP " << ip << " along X: "
+			<< v[ip][0].first << ", " << v[ip][0].second << "; along Y: "
+			<< v[ip][1].first << ", " << v[ip][1].second << "\n";
+	}
+      }
+      if (bb.is_field_interpolated()) {
+	vector<pair<double, double> > v =
+	  bb.max_and_average_interpolation_mismatches_relative_to_max_field(n_random);
+	output_interp << "Max and average |precise - interpolated| E-field mismatches normalized to max |E| at\n";
+	for (int ip=0; ip<v.size(); ++ip) {
+	  output_interp << "    IP " << ip << ": "
+			<< v[ip].first << ", " << v[ip].second << "\n";
+	}
+      }
+    }
     output_summary.open(output_dir + "/summary.txt");
-    output_kicker_positions << scientific;  // change to scientific format for doubles
     output_summary << scientific;
   }
   double max_xy_r = 0; // find max possible no beam-beam radius for atomic converter in output
@@ -403,10 +431,11 @@ void beam_beam(const Kicked& kicked, const Kickers& kickers, const Sim& sim,
       kick_adiabatic(n_ip, vector<array<double, 2> >(sim.n_turns[ADIABATIC]));
     vector<vector<complex<double> > >
       kick_average_adiabatic(n_ip, vector<complex<double> >(sim.n_turns[ADIABATIC]));
+    int selected_turns = (sim.select_one_turn_out_of < 1) ? 1 : sim.select_one_turn_out_of;
     output.reset(n_ip,
     		 n_points,
     		 n_total_turns,
-    		 sim.select_one_turn_out_of);
+    		 selected_turns);
     for (int i_turn = 0; i_turn < sim.n_turns[ADIABATIC]; ++i_turn) {
       double trans_w = double(i_turn + 1) / sim.n_turns[ADIABATIC];
       // linearly increasing from 1/sim.n_turns[ADIABATIC] for i_turn=0,
@@ -455,7 +484,7 @@ void beam_beam(const Kicked& kicked, const Kickers& kickers, const Sim& sim,
     vector<thread> threads(n_points);
     auto loop = [&rx, &ry, &w, &bb, z2, step,
 		 &transportation_factor, &kick,
-		 &sim, &n_ip, &output,
+		 &sim, &n_ip, &output, &selected_turns,
 		 kick_model]
       (int i, double rnd1, double rnd2) {
 		  // For every (rx,ry) pair obtain X-X', Y-Y' 4-dimensional
@@ -501,18 +530,18 @@ void beam_beam(const Kicked& kicked, const Kickers& kickers, const Sim& sim,
 			 output.get<Avr_XY_Per_Turn>(ip).add(i_turn, z1 * w[i]);
 		       }
 		       if (output.is_active<Points>(ip) && (i_turn + 1) %
-			   sim.select_one_turn_out_of == 0) {
+			   selected_turns == 0) {
 			 // It is more convenient here to count from one,
 			 // eg. consider i_turn+1. Then, it runs in the range
 			 // 1...N_turns. Only multiples of
-			 // sim.select_one_turn_out_of are written out. Eg. if
-			 // sim.select_one_turn_out_of > 1 and N_turns is the
-			 // multiple of sim.select_one_turn_out_of: the last
+			 // selected_turns are written out. Eg. if
+			 // selected_turns > 1 and N_turns is the
+			 // multiple of selected_turns: the last
 			 // i_turn + 1 = N_turn is written, while the first
 			 // i_turn + 1 = 1 - not.
-			 int j_turn = (i_turn + 1) / sim.select_one_turn_out_of - 1;
+			 int j_turn = (i_turn + 1) / selected_turns - 1;
 			 // in other words: j_turn+1 = (i_turn+1) /
-			 // sim.select_one_turn_out_of, where i,j_turn + 1
+			 // selected_turns, where i,j_turn + 1
 			 // correspond to counting from one.  Last j_turn+1 =
 			 // N_turn/select_runs.
 			 output.get<Points>(ip).add(j_turn, i, xZ, yZ);
@@ -632,46 +661,13 @@ void beam_beam(const Kicked& kicked, const Kickers& kickers, const Sim& sim,
     }
     if (!quiet) cout << " done" << endl;
   } // end of loop over steps
-    //
-  {
-    int n_random = sim.n_random_points_to_check_interpolation;
-    if ( (bb.is_density_interpolated() || bb.is_field_interpolated()) &&
-	 n_random > 0 ) {
-      // check the precision of the interpolation by measuring the absolute
-      // mismatches with the exact density/field values at randomly distributed
-      // points inside the interpolation grid
-      if (!quiet && bb.is_density_interpolated()) {
-	vector<array<pair<double, double>, 2> > v =
-	  bb.max_and_average_interpolation_mismatches_relative_to_max_density(n_random);
-	cout << "Max and average |precise - interpolated| density mismatches normalized to max density at\n";
-	for (int ip=0; ip<v.size(); ++ip) {
-	  cout << "    IP " << ip << " along X: "
-	       << scientific  // change to scientific format for doubles
-	       << v[ip][0].first << ", " << v[ip][0].second << "; along Y: "
-	       << v[ip][1].first << ", " << v[ip][1].second << "\n"
-	       << fixed;      // change back to defaul fixed format
-	}
-      }
-      if (!quiet && bb.is_field_interpolated()) {
-	vector<pair<double, double> > v =
-	  bb.max_and_average_interpolation_mismatches_relative_to_max_field(n_random);
-	cout << "Max and average |precise - interpolated| E-field mismatches normalized to max |E| at\n";
-	for (int ip=0; ip<v.size(); ++ip) {
-	  cout << "    IP " << ip << ": "
-	       << scientific
-	       << v[ip].first << ", " << v[ip].second << "\n"
-	       << fixed;
-	}
-      }
-    }
-  }
   if (!quiet && output_dir != "") {
     cout << "\nResults are written to " << output_dir << " directory.\n\n"
 	 << "The summary is in \"summary.txt\" in the format:\n"
 	 << "<step> <IP> <beam-beam/no beam-beam luminosity correction>\n"
 	 << "no beam-beam: <analytic> overlap, <numeric/analytic ratio> and <its error>\n"
-	 << "no beam-beam:    <X>, <Y> numeric center-of-mass shift\n"
-	 << "beam-beam shift: <X>, <Y> analytic, <X>, <Y> numeric\n\n"
+	 << "no beam-beam: <X>, <Y> numeric center-of-mass shift\n"
+	 << "   beam-beam: <X>, <Y> analytic, <X>, <Y> numeric shift\n\n"
 	 << "No beam-beam numeric/analytic error is roughly estimated from turn-by-turn variations,\n"
 	 << "available only if \"integrals.per.turn\" option is set in \"output\".\n"
 	 << "Otherwise this error is set to \"nan\". Similarly, numeric <X>, <Y> shifts are calculated\n"
