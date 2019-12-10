@@ -342,6 +342,10 @@ void beam_beam(const Kicked& kicked, const Kickers& kickers, const Sim& sim,
       }
       exit(1);
     }
+    // save input
+    ofstream input(output_dir + "/input.txt");
+    print(input, kicked, kickers, sim);
+    //
     ogzstream output_rx_ry_weights((output_dir + "/rx_ry_weights.txt.gz").c_str());
     output_rx_ry_weights << scientific; // change to scientific format for doubles
     for (int ip = 0; ip < n_ip; ++ip) {

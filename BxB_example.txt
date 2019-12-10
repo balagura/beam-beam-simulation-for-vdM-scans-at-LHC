@@ -56,7 +56,7 @@ kicked.exact_phases = FALSE
 # -------------------- Kickers parameters --------------------
 #
 # Charge of the particles in the units of the proton charge.
-s.Z = 1
+kickers.Z = 1
 
 # Number of particles in all kickers
 kickers.n_particles = 8.5e10 8.5e10 8.5e10 8.5e10
@@ -173,7 +173,7 @@ sim.output_dir = tmp
 # "output_dir/XXXX_XXXX.txt.gz". "output" might include any combination of
 # "integrals_per_turn", "avr_xy_per_turn", "integrals_per_particle",
 # "avr_xy_per_particle", "points" or be empty, see "Output" below.
-sim.output = integrals.per.turn avr.xy.per.turn integrals.per.particle avr.xy.per.particle points
+sim.output = integrals_per_turn avr_xy_per_turn integrals_per_particle avr_xy_per_particle points
 
 # -------------------- Description of the simulation --------------------
 #
@@ -338,12 +338,14 @@ sim.output = integrals.per.turn avr.xy.per.turn integrals.per.particle avr.xy.pe
 # The integers i_turn and i_particle are counted from zero.
 #
 # In addition, the files
+# "output_dir"/input.txt,
 # "output_dir"/rx_ry_weights.txt.gz,
 # "output_dir"/kicker_positions.txt,
 # "output_dir"/interpolation_precision.txt and
 # "output_dir"/summary.txt are printed out regardless of options in
 # "output" with the following content:
 #
+# "output_dir"/input.txt - all input parameters.
 # "output_dir"/rx_ry_weights.txt.gz - for every simulated particle: its
 #             initial rX and rY radii (in X,X' and Y,Y' phase spaces) at ip
 #             and its "weight".

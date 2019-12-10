@@ -335,12 +335,14 @@ for step in range(len(summary[0])):
 # The integers i_turn and i_particle are counted from zero.
 #
 # In addition, the files
+# "output_dir"/input.txt,
 # "output_dir"/rx_ry_weights.txt.gz,
 # "output_dir"/kicker_positions.txt,
 # "output_dir"/interpolation_precision.txt and
 # "output_dir"/summary.txt are printed out regardless of options in
 # "output" with the following content:
 #
+# "output_dir"/input.txt - all input parameters.
 # "output_dir"/rx_ry_weights.txt.gz - for every simulated particle: its
 #             initial rX and rY radii (in X,X' and Y,Y' phase spaces) at ip
 #             and its "weight".
