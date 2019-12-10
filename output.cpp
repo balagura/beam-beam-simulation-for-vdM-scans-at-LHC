@@ -163,23 +163,27 @@ Outputs::Outputs(int n_ip,
   }  
   auto f = [n_ip, &options, &output_dir](auto&& x) {
 	     x.data.resize(n_ip);
-	     string name = x.config_name();
-	     auto it = find(options.begin(), options.end(), name);
-	     if (it != options.end()) {
-	       options.erase(it);
-	       x.write_it = true;
-	       replace(name.begin(), name.end(), '.', '_');
-	       x.file.open((output_dir + "/" + name + ".txt.gz").c_str());
-	       x.file << scientific; // change to scientific format for doubles
+	     if (output_dir != "") {
+	       auto it = find(options.begin(), options.end(), x.name());
+	       if (it != options.end()) {
+		 options.erase(it);
+		 x.write_it = true;
+		 x.file.open((output_dir + "/" + x.name() + ".txt.gz").c_str());
+		 x.file << scientific; // change to scientific format for doubles
+	       }
 	     }
 	   };
   apply([&f](auto& ... x) { (..., f(x)); }, *((Outputs_tuple*)this));
   //
   if (!options.empty()) {
-    cerr << "output option(s) "; 
-    for (const string& s: options) cerr << s << " ";
-    cerr << "do(es) not exist. Terminating\n";
-    exit(1);
+    if (output_dir == "") {
+      cout << "WARNING: output options are ignored since output directory is empty\n";
+    } else {
+      cerr << "output option(s) "; 
+      for (const string& s: options) cerr << s << " ";
+      cerr << "do(es) not exist. Terminating\n";
+      exit(1);
+    }
   }
   // Avr_XY_Per_Turn needs a special initialization of double<->atomic<llong
   // int> converter
