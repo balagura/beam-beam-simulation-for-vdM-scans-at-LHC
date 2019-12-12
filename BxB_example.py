@@ -75,6 +75,37 @@ kicked = Kicked(
 # the total number of simulated IPs.
   next_phase_over_2pi = [[0.31*(i+1) for i in range(4)],
                          [0.32*(i+1) for i in range(4)]],
+#
+# The LHC phases/2pi in vdM scans are given below for reference. They were
+# calculated by Guido Sterbini using MAD-X simulation in 2019 and reported at
+#
+# https://indico.cern.ch/event/836681/contributions/3507678/attachments/1884149/3105236/2019_07_22.pdf
+# indico: https://indico.cern.ch/event/836681/
+#
+#           Qx1       Qy1       Qx2       Qy2
+#  IP1   0.000000  0.000000  0.000000  0.000000
+#  IP2   8.295954  7.669167  8.272802  7.957720
+#  IP5  31.975690 29.648602 31.984398 29.761319
+#  IP8  56.064831 51.017069 55.799012 51.715754
+#  IP1  64.310000 59.320000 64.310000 59.320000
+#
+# 
+# If the simulated kicked bunch is in beam 1 and the kickers are in beam 2:
+#
+# kicked.next_phase_over_2pi.x = 8.295954 31.975690 56.064831 64.310000
+# kicked.next_phase_over_2pi.y = 7.669167 29.648602 51.017069 59.320000
+#
+# If the simulated kicked bunch is in beam 1 and the kickers are in beam 2,
+# one should take into account that beam2 goes in the opposite direction, ie.
+# in the order IP1->8->5->2->1. So, one needs to take (full tune - table column)
+# in reverse order,
+#  ie. reversed 64.31 - (0, 8.272802, 31.984398, 55.799012)
+#  or  reversed 59.32 - (0, 7.957720, 29.761319, 51.715754):
+#
+# kicked.x.next.phase.over.2pi = 8.510988 32.325602 56.037198 64.310000
+# kicked.y.next.phase.over.2pi = 7.604246 29.558681 51.362280 59.320000
+#
+  
 # Vector of pairs of Gaussian sigmas in um and the corresponding weights of
 # the multi-Gaussian kicked bunch density in "x" and "y". All Gaussians should
 # have a common mean at zero. The weights might be given not normalized.
