@@ -275,11 +275,11 @@ new.lumi.w.over.wo <- {
     .[, vdm.profile := {
         . <- 2/sqrt(2*pi)/vdm.sig * exp(-.$x2^2 / 2 / vdm.sig^2)
     }]
-    . <- .[,list(separation = x2,
-                 cor = 1 + 2 * (int.to.int0.correction - 1),
-                 ## correction is doubled, as both bunches are affected by
-                 ## int.to.int0.correction
-                 vdm.profile)]
+    .[,list(separation = x2,
+            cor = 1 + 2 * (int.to.int0.correction - 1),
+            ## correction is doubled, as both bunches are affected by
+            ## int.to.int0.correction
+            vdm.profile)]
 }
 
 xsec <- {
@@ -587,3 +587,90 @@ print('Cross-section corrections: Xsec(beam-beam)/Xsec(NO beam-beam)')
 print(xsec)
 print('Cross-section when applying old correction on top of new data')
 print(xsec.old.from.new)
+
+## gg.cor.dipole.subtr.and.added.pdf
+if (grepl("_precise\\.minus\\..*", dir)) {
+    dir.precise <- sub("_precise\\.minus\\..*", "", dir)
+    load(file.path(dir.precise, 'Rdata', 'results.rds'))
+    new.lumi.w.over.wo.precise <- new.lumi.w.over.wo
+    xsec.precise <- xsec
+
+    dir.const <- sub("precise.minus.", "", dir, fixed = TRUE)
+    load(file.path(dir.const, 'Rdata', 'results.rds'))
+    new.lumi.w.over.wo.const <- new.lumi.w.over.wo
+
+    load(file.path(dir, 'Rdata', 'results.rds'))
+    new.lumi.w.over.wo[, orbit := new.lumi.w.over.wo.const $ cor] # store cor for const as orbit here, no other use
+
+    gg.cor.dipole.subtr.and.added <- function() {
+        old <- melt(old.lumi.w.over.wo[,list(separation, beta.MADX, orbit, beta.MADX.orbit, beta.linear)],
+                    id.vars = 'separation')
+        combined <- rbind(old,
+                          new.lumi.w.over.wo.precise[, list(separation,
+                                                            variable = 'new.dipole.not.subtr',
+                                                            value = cor)],
+                          new.lumi.w.over.wo[, list(separation,
+                                                    variable = 'new.dipole',
+                                                    value = orbit)],
+                          new.lumi.w.over.wo[, list(separation,
+                                                    variable = 'new.dipole.subtr',
+                                                    value = cor)],
+                          new.lumi.w.over.wo[, list(separation,
+                                                    variable = 'new.dipole.subtr.and.added',
+                                                    value = cor*orbit)])
+        ggplot() +
+            geom_line (data = combined[!grepl('new',variable)],
+                       aes(separation, value, color=variable)) +
+            geom_point(data = combined[grepl('new',variable)], aes(separation, value, color=variable), size=1) +
+            geom_line(data = combined[grepl('new',variable)],
+                      aes(separation, value, color=variable), linetype = 'dotted') +
+            geom_hline(aes(yintercept = 1), linetype = 'dashed') +
+            scale_colour_manual(values = c(new.dipole.not.subtr='black',
+                                           new.dipole.subtr.and.added='#808080',
+                                           new.dipole.subtr='#009900',
+                                           beta.MADX.orbit='red', beta.MADX='blue',
+                                           new.dipole = 'green',
+                                           orbit='green', beta.linear='purple')) +
+            labs(title = paste0('Model of dipole kick: ', sub('^.*precise\\.minus\\.', '\\1', dir)),
+                 x = 'Beams separation, um',
+                 y = 'L(with bb) / L(wo bb)')
+    }
+    
+    plot.dir <- file.path(dir, 'pdf')
+    if (! file.exists( plot.dir )) {
+        if (! dir.create(plot.dir, recursive = TRUE) ) {
+            stop('Can not create subdirectory ', plot.dir)
+        }
+    }
+    save.plot('gg.cor.dipole.subtr.and.added')
+
+    xsec <- { # recal xsec using separate cor*orbit case
+        integ.to.ref <- function(x, y, cor) {
+            ## trapezoidal integration is better than the sum which is biased, as
+            ## it is equivalent to an integration by rectangles, and the left half
+            ## of the first rectangle with the center at zero is in the negative
+            ## region which in fact should be excluded.        
+            trapezoidal.integ <- pracma::trapz(x, y * cor)
+            reference <- pracma::trapz(x, y)
+            trapezoidal.integ / reference
+        }
+        ## formula for x-section: integ^2 / mu0:
+        xsec.cor <- function(x, y, cor) {
+            int.w.divided.by.wo <- integ.to.ref(x, y, cor)
+            int.w.divided.by.wo^2 / cor[1]
+        }
+        old.xsec <- with(old.lumi.w.over.wo, xsec.cor(separation, vdm.profile, beta.MADX.orbit))
+        new.xsec <- with(new.lumi.w.over.wo, xsec.cor(separation, vdm.profile, cor))
+        new.w.orbit <- with(new.lumi.w.over.wo, xsec.cor(separation, vdm.profile, cor*orbit))
+        list(old = old.xsec, new = new.xsec,
+             new.w.orbit = new.w.orbit,
+             new.w.orbit.minus.old = new.w.orbit - old.xsec)
+    }
+
+    print('Cross-section corrections: Xsec(beam-beam)/Xsec(NO beam-beam)')
+    print(xsec)
+    print('New cross-section, without dipole subtraction: Xsec(beam-beam)/Xsec(NO beam-beam)')
+    xsec.precise$new
+    print('New, without dipole subtraction - (with subtraction + dipole): Xsec(beam-beam)/Xsec(NO beam-beam)')
+    xsec.precise$new - xsec$new.w.orbit
+}
