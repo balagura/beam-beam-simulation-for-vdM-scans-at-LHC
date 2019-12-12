@@ -20,6 +20,33 @@
 #
 from BxB import Kicked, Kickers, Sim, Summary, beam_beam
 
+# This example with multiple IPs and with round and elliptical single or
+# multi-Gaussian bunches is almost equivalent to the simplest single IP,
+# single Gaussian round bunch case which was simulated in 2012 using the
+# LHC MAD-X code. This is done for easy comparison with this reference case.
+# Though sigmas are different, they are all close to 40 um except at the
+# last IP where they are about twice larger (80 um). The beam separations there
+# are also twice larger. This is compensated by 4 times larger kicked beta
+# (6 instead of 1.5 m at other IPs). This is done to illustrate that overall
+# this should give the same results. Indeed, at IP (where the derivative
+# d beta/dz = 0), the invariant variables are:
+#
+#   x    /sqrt(beta) =  emittance*cos(pahes) and
+#   dx/dz*sqrt(beta) = -emittance*sin(phase).
+#
+# If one scales x (ie. sigmas and beam separations) as sqrt(beta), the first
+# variable will remain invariant. The electric field (proportional to 1/x) and
+# the angular kick of dx/dz will scale as 1/sqrt(beta). Then, the kick of the
+# second variable dx/dz*sqrt(beta) will scale as sqrt(beta)/sqrt(beta),
+# ie. will also remain invariant. Therefore, the dynamics of these two
+# variables will remain the same (if the number of particles in the kicker
+# bunch is the same).
+#
+# On the other hand, one accelerator turn with four IPs with identical phase
+# advances between them (0.31 in X and 0.32 in Y in our example) are 
+# equivalent to four turns in the accelerator with only one IP. The beam-beam
+# effects at four IPs should, therefore, also be identical.
+
 # -------------------- Kicked parameters --------------------
 kicked = Kicked(
 # Momentum in GeV.
