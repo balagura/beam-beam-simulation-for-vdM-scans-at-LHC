@@ -26,8 +26,7 @@
 #
 #
 all: libBxB.so \
-     beam_beam \
-     beam_beam_model_validation
+     beam_beam
 
 beam_beam : beam_beam.o bb_config.o bb.o config.o multi_gaussian.o interpolators.o output.o Faddeeva.o gzstream.o
 	g++ -O2 -fPIC $^ -o $@ -lz -pthread
@@ -56,9 +55,3 @@ multi_gaussian.o: multi_gaussian.cpp multi_gaussian.hh interpolators.hh \
 	g++ -c -O2 -fPIC -shared $< -o $@
 output.o: output.cpp output.hh gzstream.hh bb.hh bb_C_CPP.h
 	g++ -c -O2 -fPIC -shared -std=c++17 $< -o $@
-
-beam_beam_model_validation.o: beam_beam_model_validation.C config.hh
-	g++ -c -O2 -std=c++14 $< -o $@
-beam_beam_model_validation : beam_beam_model_validation.o config.o
-	g++ -O2 beam_beam_model_validation.o config.o -o beam_beam_model_validation \
-          -lboost_filesystem -lboost_system -lboost_iostreams -lz
