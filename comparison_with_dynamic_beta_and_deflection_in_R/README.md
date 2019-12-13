@@ -21,7 +21,7 @@ An old prescription of the beam-beam corrections at LHC in 2012-2018 was essenti
 kick model, ie. the electric field was the sum of the constant dipole field (`average`) and the field proportional to
 the displacement from the kicker center in X and Y (`quadrupole`).
 
-`Precise`, `precise.minus.average` and `average` are the kick models which are only kept in `BxB` v2.0. 
+`Precise`, `precise.minus.average` and `average` are the kick models which are only kept in `BxB` v1.1. 
 
 In `precise.minus.one.third.of.average` and `one.third.of.average` only 1/3 of the average kick is taken. 
 In `precise.minus.at.center` and `at.center` the field value at the kicked bunch center is taken as a 
@@ -38,5 +38,5 @@ simulate all kick models with adiabatic and abrupt switch on, will analyze the d
 `bb_MAD-X_2012_precise.minus.*/pdf/gg.cor.dipole.subtr.and.added.pdf`.
 
 ## Minimal documentation
-Old (possibly, outdated) documentation prepared at that time can be obtained as a PDF
+Old (possibly, outdated) documentation prepared at that time for `BxB` version v1.0 can be obtained as a PDF
 document by typing `make` in the subdirectory `doc`.
