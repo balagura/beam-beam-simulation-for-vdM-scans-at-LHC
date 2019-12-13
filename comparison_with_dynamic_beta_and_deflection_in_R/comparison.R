@@ -590,7 +590,7 @@ print(xsec.old.from.new)
 
 ## gg.cor.dipole.subtr.and.added.pdf
 if (grepl("_precise\\.minus\\..*", dir)) {
-    dir.precise <- sub("_precise\\.minus\\..*", "", dir)
+    dir.precise <- sub("_precise\\.minus\\..*_1", "_precise_1", dir)
     load(file.path(dir.precise, 'Rdata', 'results.rds'))
     new.lumi.w.over.wo.precise <- new.lumi.w.over.wo
     xsec.precise <- xsec
