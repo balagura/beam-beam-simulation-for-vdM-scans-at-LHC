@@ -40,8 +40,8 @@ struct Kicked_C {    /* "kicked" ie. simulated bunch */
   double *beta; /* [coor*n_ip + ip], ie. first X, then Y,beta-star function at the
 		   simulated interaction points, in meters */
   double *next_phase_over_2pi; /* [coor*ip + ip], betatron absolute phases/2pi */
-  Multi_Gaussian_C gaussian[2]; /* X,Y-sigmas and weights at "ip" */
   bool exact_phases; /* default = false, see below */
+  Multi_Gaussian_C gaussian[2]; /* X,Y-sigmas and weights at "ip" */
 };
 
 struct Kickers_C { /* "kicker" bunches creting the field */

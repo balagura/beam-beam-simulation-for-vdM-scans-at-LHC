@@ -104,13 +104,7 @@ kicked = Kicked(
 #
 # kicked.x.next.phase.over.2pi = 8.510988 32.325602 56.037198 64.310000
 # kicked.y.next.phase.over.2pi = 7.604246 29.558681 51.362280 59.320000
-#
   
-# Vector of pairs of Gaussian sigmas in um and the corresponding weights of
-# the multi-Gaussian kicked bunch density in "x" and "y". All Gaussians should
-# have a common mean at zero. The weights might be given not normalized.
-  sigma_weight = [[[40, 0.2], [40.0, 0.8]],
-                  [[39.99, 0.3], [40, 0.7]]],
 # If values in "next_phase_over_2pi" are given with 2 (3) digits after the
 # comma, after 100 (1000) turns the points return almost to their original
 # positions if the beam-beam effect is small (as 100* or 1000 * phases/2pi
@@ -123,7 +117,13 @@ kicked = Kicked(
 # them irrational and opens otherwise closed Lissajous figures of betatron
 # oscillations in X-Y plane. If this is not desired, "exact_phases" should be
 # set to TRUE. Then all phases/2pi are used exactly as they are given.
-  exact_phases = False)
+  exact_phases = False,
+    
+# Vector of pairs of Gaussian sigmas in um and the corresponding weights of
+# the multi-Gaussian kicked bunch density in "x" and "y". All Gaussians should
+# have a common mean at zero. The weights might be given not normalized.
+  sigma_weight = [[[40, 0.2], [40.0, 0.8]],
+                  [[39.99, 0.3], [40, 0.7]]])
 
 # -------------------- Kickers parameters --------------------
 pos_x = [10*i for i in range(21)]
@@ -216,7 +216,7 @@ sim = Sim(
 # "output_dir/XXXX_XXXX.txt.gz". "output" might include any combination of
 # "integrals_per_turn", "avr_xy_per_turn", "integrals_per_particle",
 # "avr_xy_per_particle", "points" or be empty, see "Output" below.
-  output = "integrals.per.turn avr.xy.per.turn integrals.per.particle avr.xy.per.particle points")
+  output = "integrals_per_turn avr_xy_per_turn integrals_per_particle avr_xy_per_particle points")
 
 # -------------------- Running the simulation --------------------
 summary = beam_beam(kicked, kickers, sim,

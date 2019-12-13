@@ -88,14 +88,6 @@ kicked.next_phase_over_2pi.y = 0.32 0.64 0.96 1.28
 # kicked.y.next.phase.over.2pi = 7.604246 29.558681 51.362280 59.320000
 #
 
-# Gaussian sig(mas) in um and the corresponding w(eights) of the
-# multi-Gaussian kicked bunch density in "x" and "y". All Gaussians should
-# have a common mean at zero. The weights might be given not normalized.
-kicked.gaussian.x.sig = 40 40
-kicked.gaussian.x.w   = 0.2 0.8
-kicked.gaussian.y.sig = 39.99 40
-kicked.gaussian.y.w   = 0.3 0.7
-
 # If values in "next_phase_over_2pi" are given with 2 (3) digits after the
 # comma, after 100 (1000) turns the points return almost to their original
 # positions if the beam-beam effect is small (as 100* or 1000 * phases/2pi
@@ -109,6 +101,14 @@ kicked.gaussian.y.w   = 0.3 0.7
 # oscillations in X-Y plane. If this is not desired, "exact_phases" should be
 # set to TRUE. Then all phases/2pi are used exactly as they are given.
 kicked.exact_phases = FALSE
+
+# Gaussian sig(mas) in um and the corresponding w(eights) of the
+# multi-Gaussian kicked bunch density in "x" and "y". All Gaussians should
+# have a common mean at zero. The weights might be given not normalized.
+kicked.gaussian.x.sig = 40 40
+kicked.gaussian.x.w   = 0.2 0.8
+kicked.gaussian.y.sig = 39.99 40
+kicked.gaussian.y.w   = 0.3 0.7
 
 # -------------------- Kickers parameters --------------------
 #
