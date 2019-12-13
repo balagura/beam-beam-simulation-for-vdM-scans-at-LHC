@@ -30,8 +30,8 @@ from collections import namedtuple
 # ---------- Input parameters ----------
 Kicked = namedtuple("Kicked",
                     ["momentum", "Z", "ip", "beta",
-                     "next_phase_over_2pi",
-                     "sigma_weight", "exact_phases"])
+                     "next_phase_over_2pi", "exact_phases",
+                     "sigma_weight"])
 Kickers = namedtuple("Kickers",
                      ["Z", "n_particles",
                       "sigma_weight", "position"])
@@ -63,8 +63,8 @@ class _C_Kicked(Structure) :
              ("ip", c_int),
              ("beta", POINTER(c_double)),
              ("next_phase_over_2pi", POINTER(c_double)),
-             ("gaussian", _C_Multi_Gaussian*2),
-             ("exact_phases", c_bool)]
+             ("exact_phases", c_bool),
+             ("gaussian", _C_Multi_Gaussian*2)]
 
 class _C_Kickers(Structure) :
  _fields_ = [("Z", c_int),
@@ -119,7 +119,7 @@ def _python_summary(s) :
                 s.avr_numeric)
 
 # -------------------- C functions --------------------
-_bb_c = CDLL("./BxB_python.so")
+_bb_c = CDLL("./libBxB.so")
 _bb_c.beam_beam.restype = None
 _bb_c.beam_beam.argtypes = [POINTER(_C_Kicked), POINTER(_C_Kickers), POINTER(_C_Sim), POINTER(_C_Summary), c_bool]
 
@@ -250,11 +250,6 @@ def beam_beam(kicked, kickers, sim, quiet = False):
   # kicked.y.next.phase.over.2pi = 7.604246 29.558681 51.362280 59.320000
   #
     
-  # Vector of pairs of Gaussian sigmas in um and the corresponding weights of
-  # the multi-Gaussian kicked bunch density in "x" and "y". All Gaussians should
-  # have a common mean at zero. The weights might be given not normalized.
-    sigma_weight = [[[40, 0.2], [40.0, 0.8]],
-                    [[39.99, 0.3], [40, 0.7]]],
   # If values in "next_phase_over_2pi" are given with 2 (3) digits after the
   # comma, after 100 (1000) turns the points return almost to their original
   # positions if the beam-beam effect is small (as 100* or 1000 * phases/2pi
@@ -267,7 +262,13 @@ def beam_beam(kicked, kickers, sim, quiet = False):
   # them irrational and opens otherwise closed Lissajous figures of betatron
   # oscillations in X-Y plane. If this is not desired, "exact_phases" should be
   # set to TRUE. Then all phases/2pi are used exactly as they are given.
-    exact_phases = False)
+    exact_phases = False,
+  
+  # Vector of pairs of Gaussian sigmas in um and the corresponding weights of
+  # the multi-Gaussian kicked bunch density in "x" and "y". All Gaussians should
+  # have a common mean at zero. The weights might be given not normalized.
+    sigma_weight = [[[40, 0.2], [40.0, 0.8]],
+                    [[39.99, 0.3], [40, 0.7]]])
   
   # -------------------- Kickers parameters --------------------
   pos_x = [10*i for i in range(21)]
@@ -609,8 +610,8 @@ def beam_beam(kicked, kickers, sim, quiet = False):
                        beta = _to_doubles(kicked.beta[0] + kicked.beta[1]),
                        next_phase_over_2pi = _to_doubles(kicked.next_phase_over_2pi[0] +
                                                          kicked.next_phase_over_2pi[1]),
-                       gaussian = _gaussians_c(kicked.sigma_weight),
-                       exact_phases = c_bool(kicked.exact_phases))
+                       exact_phases = c_bool(kicked.exact_phases),
+                       gaussian = _gaussians_c(kicked.sigma_weight))
   kickers_c = _C_Kickers(Z = kickers.Z,
                          n_particles = _to_doubles(kickers.n_particles),
                          gaussian = _gaussians_c(kickers.sigma_weight[0] +
