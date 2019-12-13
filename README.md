@@ -76,12 +76,7 @@ library(BxB)
 ?sim
 ```
 
-## Old C++ program for validation of `B*B` model with single-IP single-Gaussian round bunches
-It was used to validate `B*B` with various kick models and to compare it 
-  with the simulation used at LHC before, in 2012-2018.
-  It can be build with 
-  ```
-  make beam_beam_model_validation
-  ```
-The minimal (possibly, outdated) documentation prepared at that time can be obtained as a PDF
-document by typing `make` in the subdirectory `doc`.
+## Old `B*B` C++ code version v1.0 - model validation with single-IP single-Gaussian round bunches
+This code stored in a separate `model_validation` directory, was used to validate `B*B` model for
+various kick models and to compare the results with the simulation used at LHC before, in 2012-2018. See 
+`model_validation/README.md` for the details.
