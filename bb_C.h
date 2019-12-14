@@ -90,78 +90,118 @@ extern "C" {
  -------------------- Detailed explanations --------------------
 
  Kicked_C::next_phase_over_2pi_x,y
- By definition, at the first IP the phase is zero, so the arrays start from
- the second IP, this is why they are called "next" phase over 2pi. The last
- value in the array is the tune. Note, two beams are rotating in opposite
- directions, and the absolute phase should increase in the direction of the
- beam.
+ The phase at IP=0 is zero by definition, therefore, the "x" and "y" vectors
+ should start from the phase at IP=1, this is why this parameter is called
+ "next" phase over 2pi. The order of IPs = 0,1,2, ... is determined by the
+ order in which the kicked bunch collides with the kickers in the accelerator,
+ so, eg. it is opposite for two beams rotating in the opposite directions. The
+ lengths of "x" and "y" vectors should be equal to the total number of
+ simulated IPs. The last value in the array is the tune.
+
+ The LHC phases/2pi in vdM scans are given below for reference. They were
+ calculated by Guido Sterbini using MAD-X simulation in 2019 and reported at
+ https://indico.cern.ch/event/836681/contributions/3507678/attachments/1884149/3105236/2019_07_22.pdf
+ indico: https://indico.cern.ch/event/836681/
+           Qx1       Qy1       Qx2       Qy2
+  IP1   0.000000  0.000000  0.000000  0.000000
+  IP2   8.295954  7.669167  8.272802  7.957720
+  IP5  31.975690 29.648602 31.984398 29.761319
+  IP8  56.064831 51.017069 55.799012 51.715754
+  IP1  64.310000 59.320000 64.310000 59.320000
+ 
+ If the simulated kicked bunch is in beam 1 and the kickers are in beam 2:
+ next_phase_over_2pi_x = 8.295954 31.975690 56.064831 64.310000
+ next_phase_over_2pi_y = 7.669167 29.648602 51.017069 59.320000
+
+ If the simulated kicked bunch is in beam 1 and the kickers are in beam 2,
+ one should take into account that beam2 goes in the opposite direction, ie.
+ in the order IP1->8->5->2->1. So, one needs to take (full tune - table column)
+ in reverse order,
+  ie. reversed 64.31 - (0, 8.272802, 31.984398, 55.799012)
+  or  reversed 59.32 - (0, 7.957720, 29.761319, 51.715754):
+ next_phase_over_2pi_x = 8.510988 32.325602 56.037198 64.310000
+ next_phase_over_2pi_y = 7.604246 29.558681 51.362280 59.320000
 
  Kicked_C::gaussian_x,y
- multi-Gaussian sigmas and weights along X or Y at the interaction point "ip";
- at other IPs sigmas are recalculated as sigma(ip2) = sigma(ip) *
- sqrt(beta(ip2) / beta(ip))
-
- Kicked_C::exact_phases
- Phases/2pi or full tunes might be given with 2-3 digits after the comma. So,
- after 100 or 1000 accelerator turns the points return to their original
- positions (as 100* or 1000*phase/2pi become integer). To avoid this and to
- add an extra randomness, a "negligible" irrational number randomly
- distributed in the interval -exp(-8.5)...+exp(-8.5) = +/-0.0001017342 is
- added by default to all phases/2pi. This makes them irrational and opens
- otherwise closed Lissajous figures of betatron oscillations in X-Y plane. In
- reality the phases/2pi are always irrational.
-
-  If this is not desired, "exact_phases = true" should be set. Then all
-  phases/2pi are used "as is". Note, this might slightly deteriorate the
-  quality of the simulation if phases are given with only two digits, then it
-  is preferable to set "exact_phases = false"
-
-  Kickers_C::gaussian_x,y
-
-  contrary to the kicked bunch, the kicker multi-Gaussian sigmas should be
-  given directly at the corresponding IP (where the kick is produced),
-  ie. without any extrapolation via beta-functions. In other words, such
-  kicker sigmas, in general, can differ from the sigmas measured at kicked
-  "ip" 
-
-  Kickers_C::n_positions_x,y
-  Kickers_C::position_x,y
-  the lengths and the arrays of X, Y kicker bunch center coordinates
-  w.r.t. the kicked bunch, in um. Every (X, Y) pair corresponds to one van der
-  Meer scan step.  The lengths of all vectors should be either one or
-  maximal. If it is one, the corresponding coordinate is assumed to be
-  constant during the scan.
+ multi-Gaussian sigmas in um and the corresponding weights of the kicked bunch
+ density in "x" and "y" at the specified Kicked_C::ip number. All Gaussians
+ should have a common mean at zero. The weights might be given not normalized.
+ Kicked bunch sigmas at other IP2 are calculated via beta-function as
+ sigma(ip) * sqrt(beta(ip) / beta(IP2)). Note, that contrary to that, the kicker
+ sigmas should be specified directly at the IP of the beam-beam interaction,
+ without any extrapolation via beta. In other words, such kicker sigmas, in
+ general, can differ from the ones at this Kicked_C::ip.
  
-  ----------------------------------------------------------------------
-                            Simulation
- ----------------------------------------------------------------------
- The traced points of the "kicked" bunch are selected in the following way.
+ Kicked_C::exact_phases
+ If values in "next_phase_over_2pi" are given with 2 (3) digits after the
+ comma, after 100 (1000) turns the points return almost to their original
+ positions if the beam-beam effect is small (as 100* or 1000 * phases/2pi
+ become integer). The simulation, therefore, probes the same part of the
+ phase space over and over again, and extra turns almost do not improve the
+ convergence. To avoid this and to add extra randomness in the transverse
+ particle trajectories, "negligible" irrational numbers randomly distributed
+ in the interval -exp(-8.5)...+exp(-8.5) = +/-0.0001017342 are added to all
+ phase / 2pi values if "exact_phases" below is FALSE (default). This makes
+ them irrational and opens otherwise closed Lissajous figures of betatron
+ oscillations in X-Y plane. If this is not desired, "exact_phases" should be
+ set to TRUE. Then all phases/2pi are used exactly as they are given.
 
- The bunch density factorizes in X and Y. Its projections to X and Y are two
- multi-Gaussian distributions. Because of the circular motion in X-X' and
- Y-Y' planes (where X',Y' denote the angular coordinates scaled by the
+ Kickers_C::gaussian_x,y
+ Defines multi-Gaussian sigmas in um and the corresponding weights of the
+ kicker bunch densities in "x" and "y" at IP = 0,1,2... .  All Gaussians of
+ one kicker should have a common mean. The weights might be given not
+ normalized. Note, that contrary to the kicked bunch, the kicker sigmas should
+ be specified directly at the IP of the beam-beam interaction, without any
+ extrapolation via beta. In other words, such kicker sigmas, in general, can
+ differ from the ones at the Kicked_C::ip where the kicked sigmas are
+ specified.
+
+ Kickers_C::n_positions_x,y
+ Kickers_C::position_x,y
+ the lengths and the arrays of kicker "x" and "y" positions at the given IP
+ in um in the frame where the bunch center of the kicked bunch before
+ beam-beam was at zero. Each vector can have either one or "n_step" kicker
+ positions for a given IP, where "n_step" is the number of scan points in van
+ der Meer scan. If the vector contains only one position, it is "recycled"
+ and the kicker is assumed to be immovable during the scan along the given
+ coordinate.
+ 
+ -------------------- Description of the simulation --------------------
+
+ ....... Initial distribution of macro-particles:
+ The traced macro-particles of the "kicked" bunch are selected in the
+ following way.
+
+ It is assumed that the initial bunch densities unperturbed by beam-beam
+ factorize in X and Y and their X,Y-projections are multi-Gaussian
+ distributions with common centers. Because of the circular motion in X-X'
+ and Y-Y' planes (where X',Y' denote the angular coordinates scaled by the
  accelerator beta-function, eg. X' = dX/dZ * beta), the projections to X'
  (Y') are identical to X (Y). So, eg. a single Gaussian in X makes a
  two-dimensional Gaussian with equal sigmas in X-X' plane, and a
  multi-Gaussian makes a multi two-dimensional Gaussian with the same weights.
 
- The four-dimensional bunch density is sampled in a two-dimensional rX-rY
- grid of the radii in the X-X', Y-Y' planes at the first interaction point.
-
- Each grid side (rX or rY) extends from 0 to a maximal radius rX,Y_max. The
- latter is chosen such that the circle with the radius rX_max (or rY_max)
- contains the the same fraction of a multi two-dimensional Gaussian as that
- of a single two-dimensional Gaussian inside the circle with the radius
- "n_sigma_cut".
-
- The number of grid lines in rX and rY are the same and equal to
- int(sqrt("n_points")). Finally, only rX-rY points inside the ellipse
- inscribed to the rectangle (rX_max X rY_max) are used for the
- simulation. For every selected rX-rY pair, one point at the X-X', Y-Y'
- circles with these radii and random phases is traced in the accelerator.
-
- There are several "phases" in the simulation.
-
+ The four-dimensional kicked bunch density is sampled internally in a
+ two-dimensional rX-rY grid of the radii in the X-X', Y-Y' planes at the
+ interaction point IP = 0. Each grid side (rX or rY) extends from 0 to a
+ maximal radius rX,Y_max. The latter is chosen such that the circle with the
+ radius rX_max (or rY_max) contains the same fraction of a multi
+ two-dimensional Gaussian as that of a single two-dimensional Gaussian inside
+ the circle with the radius "n_sigma_cut" (5 by default). The grid sides
+ [0...rX_max] and [0...rY_max] are divided into int(sqrt("n_points"))
+ intervals and the grid lines are drawn through their centers. Finally, only
+ rX-rY points inside the ellipse inscribed to the rectangle [0...rX_max] X
+ [0...rY_max] are used for the simulation. The number of selected points is,
+ therefore, less than "n_points". For every rX-rY pair selected in this way,
+ one four-dimensional point at the X-X', Y-Y' circles with these radii and
+ random phases is chosen as the initial position of one macro-particle. Its
+ weight is chosen such that the ensemble of all macro-particles represents
+ the initial bunch density. The macro-particles are then traced individually
+ in the accelerator in separate threads. This allows to achieve significant
+ speed-up of the simulation in the computers with multi-core processors, the
+ gain is almost proportional to the number of cores.
+ 
+ ....... Four phases in the simulation:
  First phase is without beam-beam. It allows to calculate numerically the
  undisturbed overlap integral, compare it with the exact analytic formula and
  estimate the bias of the numerical integration. The final correction is then
@@ -172,8 +212,8 @@ extern "C" {
 
  During the second phase the beam-beam interaction is switched on
  "adiabatically": linearly with the turn number from zero to its nominal
- value. If this phase is omitted (zero turns) the switch is abrupt: from
- zero to nominal.
+ value. If this phase is omitted (zero turns) the switch is abrupt: from zero
+ to nominal.
 
  After beam-beam is fully switched on, there might be a need to wait for the
  stabilization. This is the third phase. With the adiabatic switch on
@@ -183,9 +223,12 @@ extern "C" {
  The final, fourth phase is with beam-beam. Only this phase is used to
  calculate the perturbed overlap integral and the luminosity correction.
 
+ "n_turns" parameter specifies the number of turns in all 4 phases.
+ 
+ ....... Interpolation:
  To speed up the simulation, the X- and Y-densities of the kicker bunch at a
  given point are determined using linear (one-dimensional) interpolations,
- while the generated field E - using a bilinear (two-dimensional)
+ while the generated E-field - using a bilinear (two-dimensional)
  interpolation. For that, the precise density and the field are precalculated
  at the grid of points and interpolated in between.
 
@@ -194,7 +237,7 @@ extern "C" {
  kicker bunch center for all set kicker separations. Here, rX,Y_max are the
  maximal simulated radii in X-X' and Y-Y' planes.  Therefore, the grid is
  sufficiently wide to cover all simulated without beam-beam particle
- trajectories (circles), while with 10% margins (with the factor 1.1) it
+ trajectories (circles), while with 10\% margins (with the factor 1.1) it
  likely covers also the trajectories deformed by the beam-beam
  interaction. If not, ie. if some point goes beyond the interpolation grid,
  the program falls back to the calculation of the exact field instead of the
@@ -203,125 +246,137 @@ extern "C" {
  The linear (bilinear) grid is a raw (a matrix) of N (NxN) cells and has the
  total number of points N+1 ((N+1)*(N+1)). N is defined separately for the
  one-dimensional (X,Y)-density and for the two-dimensional field
- interpolators by the following parameter
+ interpolators by the parameter
  "density_and_field_interpolators_n_cells_along_grid_side". If the
  interpolation is not desired, the corresponding N should be set to zero,
  like "0 500". The first number is for the density, the second - for the
- field, so the density will be calculated using exact formulas while the
- field will be interpolated with N=500.
+ field, so in this case the density will be calculated using exact formulas
+ while the field will be interpolated with N=500.
+
+ If the kicker densities and the fields are interpolated, the simulation of
+ complex multi-Gaussian elliptical bunches and simple round single-Gaussian
+ ones takes about the same time.
 
  The interpolators are created not for each kicker bunch but for each group
  of identical bunches. Ie. if there are identical kickers, the interpolators
  are reused to save memory.
 
- The accuracy of the interpolation can be estimated if the parameter
- "n_random_points_to_check_interpolation" below is given. This is performed
- by measuring the maximal and average absolute mismatches between the
- interpolated and the exact values at
+ The accuracy of the interpolation is estimated if the parameter
+ "n_random_points_to_check_interpolation" is larger than zero. This is
+ performed by measuring the maximal and average absolute mismatches between
+ the interpolated and the exact values at
  "n_random_points_to_check_interpolation" distributed inside the
  interpolation grid. The mismatches are then normalized to the maximal
- absolute exact value and printed out.
+ absolute exact value and printed to the file
+ "output_dir"/interpolation_precision.txt.
 
  If the interpolation was switched off by setting one or both
  "density_and_field_interpolators_n_cells_along_grid_side" values to zero,
  the corresponding "n_random_points_to_check_interpolation" has no
  effect. The check is not performed either if
- "n_random_points_to_check_interpolation" is set to zero.
+ "n_random_points_to_check_interpolation" is zero or negative.
 
- If the kicker density and the field are interpolated, the simulation of
- multi-Gaussian (round or elliptical) bunches takes about the same time
- as the simplest single-Gaussian bunches.
-
- The results of the simulation will be fully reproducible if the random seed
- is specified. Otherwise, the current time will be used as a seed, and the
- results will be not reproducible.
-
- For the debugging purposes one can redefine the kick formula by setting
- "kick_model" parameter to one of the following:
-
-  precise
-  precise.minus.average
-  average
-
+ ....... Kick model:
+ For debugging purposes one can redefine the kick formula by setting
+ "kick.model" parameter to one of the following:
+      precise
+      average
+      precise.minus.average
  "precise" is the default. In this case the exact kick formula is used.
 
  "average" means constant X,Y-independent kick equal to the value averaged
- over the kicked bunch, ie. to the sum of the kicks of all bunch particles
- divided by their number. This average kick depends only on the bunch
- separation, but not on X,Y. For the Gaussian bunches it can be calculated as
- the action of the kicker bunch with (Capital) sigma = sqrt(sigma1^2 +
- sigma2^2) on one particle placed at the kicked bunch center. The constant
- kick only shifts the first bunch center ("orbit shift"), but do not modify
- its shape, so the resulting luminosity change can be computed using analytic
- formula.
+ over the kicked bunch. Ie. it is equal to the sum of the kicks of all bunch
+ particles divided by their number. For the Gaussian bunches it can be
+ calculated as the kick exerted by the kicker bunch with (Capital) sigma =
+ sqrt(sigma1^2 + sigma2^2) on one particle placed at the kicked bunch
+ center. The constant kick only shifts the kicked bunch as a whole, but does
+ not modify its shape, so the resulting luminosity change can be computed
+ using analytic formula.
 
- "precise.minus.average" means that the kick is chosen to be the difference
- "precise" - "average".  This model is implemented to demonstrate that the
- "precise" beam-beam luminosity corrections coincide with (and can be
- decoupled to) the sum of the corrections obtained with
+ "precise.minus.average" kick is simply calculated as the difference
+ "precise" - "average". This model allows to compare the "precise" beam-beam
+ luminosity correction with the sum of the corrections obtained with
  "precise.minus.average" and "average".
 
- ----------------------------------------------------------------------
-                            Output
- ----------------------------------------------------------------------
- "output" controls what should be printed to the "output_dir". It is a
- white-space separated list of options. For every option XXXX.XXXX one
- compressed file will be generated under the name "XXXX_XXXX.txt.gz".
+ ....... Output:
+ "output" parameter controls what should be calculated and printed after the
+ simulation. It is a white-space separated list of options. If "output_dir"
+ is not empty (""), for every option "XXXX" one compressed file will be
+ created under the name "output_dir"/XXXX.txt.gz. The possible options are
+ listed below:
 
- Options:
-   "integrals.per.turn" overlap integrals per turn (averaged over particles).
-                        Format: step ip ip.kicker.x ip.kicker.y i.turn integral
+ "integrals_per_turn" - overlap integrals averaged over particles, per
+   turn.
+ Format: step ip ip_kicker_x ip_kicker_y i_turn integral.
 
-   "avr.xy.per.turn" average kicked bunch center per turn (averaged over
-                     particles)
-                     Format: step ip i.turn average.x average.y
+ "avr_xy_per_turn" - kicked bunch center averaged over particles, per
+   turn.
+ Format: step ip i_turn average_x average_y.
 
+ "integrals_per_particle" - overlap integrals averaged over turns, per
+   particle, per phase, assuming that the kicked bunch is squashed to this
+   particle, ie. the bunch density is a delta-function at its position.
+ Format: step ip phase i_particle integral.
 
-   "integrals.per.particle" overlap integrals per particle, per phase
-                            (averaged over turns in the given phase),
-                            assuming that the kicked bunch is squashed to
-                            this particle, ie. the bunch density is a
-                            delta-function at its position.
-                            Format: step ip phase i.particle integral
+ "avr_xy_per_particle" - kicked bunch center averaged over turns, per
+   particle, per phase as above.
+ Format: step ip phase i_particle average_x average_y.
 
-   "avr.xy.per.particle"   average kicked bunch center per particle, per phase
-                           as above.
-                           Format: step ip phase i.particle avr.x avr.y
+ "points" -  the traced positions of the kicked bunch particles before
+   accelerator "i_turn", note, the generated file might be very long.
+ Format: step ip i_turn i_particle X X' Y Y'.
 
+ The integers i_turn and i_particle are counted from zero.
 
-   "points"  the traced positions of the kicked bunch particles before
-             accelerator "i.turn", note, this file might be very long.
-             Format: step ip i.turn i.particle X X' Y Y'
+ In addition, the files
+ "output_dir"/input.txt,
+ "output_dir"/rx_ry_weights.txt.gz,
+ "output_dir"/kicker_positions.txt,
+ "output_dir"/interpolation_precision.txt and
+ "output_dir"/summary.txt are printed out regardless of options in
+ "output" with the following content:
 
- Storage of the traced particle positions (if the output option "points"
- above is specified) before every accelerator turn might require too much disk
- space. Instead, one can "select_one_turn_out_of" N turns. Eg. if this
- parameter is set to 1000, only the positions before i.turn = 999, 1999, 2999,
- ...  (counting from zero) will be stored. If "points" option is not
- requested in "output", "select_one_turn_out_of" has no effect.
+ "output_dir"/input.txt - all input parameters.
+ "output_dir"/rx_ry_weights.txt.gz - for every simulated particle: its
+             initial rX and rY radii (in X,X' and Y,Y' phase spaces) at ip
+             and its "weight".
+ Format: i_particle ip rx ry weight.
 
- The integers i.turn and i.particle are counted from zero.
+ "output_dir"/kicker_positions.txt - coordinates of the kicker bunch
+     centers with respect to the nominal (not perturbed by the
+     beam-beam effect) kicked bunch center.
+ Format: step ip x y.
 
- If "output_dir" is empty ("") or this subdirectory exists, nothing will be
- printed regardless of the options in "output". Otherwise "output_dir" will
- be created with the files "XXXX_XXXX.txt.gz" and in addition the following
- files will be written regardless of "output"
+ "output_dir"/interpolation_precision.txt - was explained in
+ "Interpolation".
+ 
+  "output_dir"/summary.txt - the main results of the simulation
+     including the overlap integrals and the corresponding beam-beam
+     corrections. Format:
+ <step> <IP> <beam-beam/no beam-beam luminosity correction>
+ no beam-beam: <analytic> overlap, <numeric/analytic ratio> and <its error>
+ no beam-beam: <X>, <Y> numeric center-of-mass shift
+    beam-beam: <X>, <Y> analytic, <X>, <Y> numeric shift.
+ 
+ No beam-beam numeric/analytic error is roughly estimated from turn-by-turn
+ variations, available only if "integrals_per_turn" option is set in
+ "output". Otherwise this error is set to "nan". Similarly,
+ numeric <X>, <Y> shifts are calculated only if "avr_xy_per_particle"
+ option is chosen, and set to "nan" otherwise. Without beam-beam these
+ shifts should be close to zero.
 
- "rx_ry_weights.txt.gz" for every simulated particle: its initial rX and rY radii
-                   (in X,X' and Y,Y' phase spaces) at ip and its "weight"
-                   Format: i.particle ip rx ry weight
+ The same summary data are returned by "beam_beam" function itself: after
 
- "kicker_positions.txt"  coordinates of the kicker bunch centers at all IPs
-                         with respect to the kicked bunch center
-                         Format: step ip x y
- "summary.txt"   the main results of the simulation including the overlap integrals
-                 and the corresponding beam-beam corrections.
-   Format: <step> <IP> <beam-beam/no beam-beam luminosity correction>
-    no beam-beam: <analytic> overlap integral, <numeric over anaytic> ratio and <its error> 
-    (note, error = "nan" if "integrals.per.turn" option is not requested in "output")
-    numerically calculated <X>, <Y> center-of-mass shift of the kicked bunch without beam-beam
-    (should be zero) and <X>, <Y> shift with beam-beam ("nan" if "avr.xy.per.particle" was
-    not requested in "output"), the same shift calculated for <X> and <Y> analytically
+   summary = beam_beam(kicked, kickers, sim, quiet)
+
+ summary[ip][step] contains "Summary" structure (namedtuple) defined in
+ "BxB.py" with the results. If only the minimal information on the luminosity
+ correction is required from the simulation, it is better to set "output" to
+ an empty string ("") or to "integrals_per_particle", as any other option in
+ "output" requires extra CPU time. The integrals per particle are calculated
+ in any case (but the file "output_dir"/integrals_per_particle.txt.gz is
+ printed only if the corresponding option is explicitly set in "output").
+ 
 */
 
 
