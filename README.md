@@ -13,7 +13,7 @@ the modifications of the bunch overlap integrals (ie. of the luminosities) due
 to beam-beam are reported.
 
 ## Usage
-The main function is called `beam_beam`. There are 4 ways to call it.
+The main function is called `beam_beam`. There are 5 ways to call it.
 
 ### From R language
 See the corresponding R package
@@ -29,14 +29,22 @@ The example of the python program with explanations is given in
 
 ### From C++ program
 Please, include "bb.hh" header (which in turn includes
-bb_C_CPP.h with common C and C++ declarations). It contains definitions of
+"bb_C_CPP.h" with common C and C++ declarations). It contains definitions of
 `Kicked`, `Kickers` and `Sim` structures for the kicked bunch, kickers and the
 simulation parameters, respectively. They should be filled before calling the
 main function `beam_beam(kicked, kickers, sim, &summary, quiet)`. The output
 is a matrix `vector<vector<BB_Summary_Per_Step_IP> > summary`, with
 `summary[ip][step]` containing the simulation results. The library `libBxB.so`
-created by `make libBxB.so` and containing `beam_beam()` should be included (as
-`-lBxB`) when making a C++ executable.
+created by `make libBxB.so` and containing C++ `beam_beam()` function should 
+be included (as `-lBxB`) when making a C++ executable.
+
+### From C program
+Please, include "bb_C.h" header (which in turn includes "bb_C_CPP.h" with common C and C++ 
+declarations). The C `Kicked_C`, `Kickers_C` and `Sim_C` input structures are similar to 
+the corresponding C++ versions and are descibed in "bb_C.h". The output 
+"BB_Summary_Per_Step_IP" structure is identical in C and C++. The main C function is also
+called `beam_beam()` (but is different from its C++ counterpart). It is contained in the same
+library `libBxB.so` which should be included (as `-lBxB`) when making a C executable.
 
 ### Using configuration text file
 The standalone C++ program `beam_beam` from `beam_beam.cpp` runs the simulation with 
