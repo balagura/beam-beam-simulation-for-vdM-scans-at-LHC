@@ -216,7 +216,8 @@ def beam_beam(kicked, kickers, sim, quiet = False):
   # determined by the order in which the kicked bunch collides with the kickers
   # in the accelerator, so, eg. it is opposite for two beams rotating in the
   # opposite directions. The lengths of "x" and "y" vectors should be equal to
-  # the total number of simulated IPs.
+  # the total number of simulated IPs. The last value in the array is
+  # the tune.
     next_phase_over_2pi = [[0.31*(i+1) for i in range(4)],
                            [0.32*(i+1) for i in range(4)]],
   #

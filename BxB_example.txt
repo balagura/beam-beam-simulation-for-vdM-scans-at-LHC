@@ -54,7 +54,7 @@ kicked.beta.y = 1.5 1.5 1.5 6
 # determined by the order in which the kicked bunch collides with the kickers
 # in the accelerator, so, eg. it is opposite for two beams rotating in the
 # opposite directions. The lengths of "x" and "y" vectors should be equal to
-# the total number of simulated IPs.
+# the total number of simulated IPs. The last value in the array is the tune.
 kicked.next_phase_over_2pi.x = 0.31 0.62 0.93 1.24
 kicked.next_phase_over_2pi.y = 0.32 0.64 0.96 1.28
 #
@@ -84,8 +84,8 @@ kicked.next_phase_over_2pi.y = 0.32 0.64 0.96 1.28
 #  ie. reversed 64.31 - (0, 8.272802, 31.984398, 55.799012)
 #  or  reversed 59.32 - (0, 7.957720, 29.761319, 51.715754):
 #
-# kicked.x.next.phase.over.2pi = 8.510988 32.325602 56.037198 64.310000
-# kicked.y.next.phase.over.2pi = 7.604246 29.558681 51.362280 59.320000
+# kicked.next_phase_over_2pi.x = 8.510988 32.325602 56.037198 64.310000
+# kicked.next_phase_over_2pi.y = 7.604246 29.558681 51.362280 59.320000
 #
 
 # If values in "next_phase_over_2pi" are given with 2 (3) digits after the

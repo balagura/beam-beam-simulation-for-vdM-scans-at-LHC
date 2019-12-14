@@ -673,9 +673,9 @@ void beam_beam(const Kicked& kicked, const Kickers& kickers, const Sim& sim,
 	 << "no beam-beam: <X>, <Y> numeric center-of-mass shift\n"
 	 << "   beam-beam: <X>, <Y> analytic, <X>, <Y> numeric shift\n\n"
 	 << "No beam-beam numeric/analytic error is roughly estimated from turn-by-turn variations,\n"
-	 << "available only if \"integrals.per.turn\" option is set in \"output\".\n"
+	 << "available only if \"integrals_per_turn\" option is set in \"output\".\n"
 	 << "Otherwise this error is set to \"nan\". Similarly, numeric <X>, <Y> shifts are calculated\n"
-	 << "only if \"avr.xy.per.particle\" option is chosen, and set to \"nan\" otherwise.\n"
+	 << "only if \"avr_xy_per_particle\" option is chosen, and set to \"nan\" otherwise.\n"
 	 << "Without beam-beam these shifts should be close to zero.\n";
   }
 }
