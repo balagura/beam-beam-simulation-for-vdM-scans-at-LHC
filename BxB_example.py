@@ -122,8 +122,8 @@ kicked = Kicked(
 # Vector of pairs of Gaussian sigmas in um and the corresponding weights of
 # the multi-Gaussian kicked bunch density in "x" and "y". All Gaussians should
 # have a common mean at zero. The weights might be given not normalized.
-  sigma_weight = [[[40, 0.2], [40.0, 0.8]],
-                  [[39.99, 0.3], [40, 0.7]]])
+  gaussian = [[[40, 0.2], [40.0, 0.8]],
+              [[39.99, 0.3], [40, 0.7]]])
 
 # -------------------- Kickers parameters --------------------
 pos_x = [10*i for i in range(21)]
@@ -140,14 +140,14 @@ kickers = Kickers(
 # without any extrapolation via beta. In other words, such kicker sigmas, in
 # general, can differ from the ones at the "kicked.ip" where the kicked sigmas
 # are specified.
-  sigma_weight = [[[[40, 0.2], [40.0, 0.8]],  # IP = 0, x
-                   [[40, 0.3], [40., 0.6], [40.0, 0.1]], # IP = 1, x
-                   [[40.002, 2], [39.999, 10], [40.001, 10], [39.998, 2]],
-                   [[80,1]]],
-                  [[[40, 0.2]], # IP = 0, y
-                   [[40, 0.2]],
-                   [[40, 0.2]],
-                   [[80.001,1], [79.999,1]]]], # IP = 3, y
+  gaussian = [[[[40, 0.2], [40.0, 0.8]],  # IP = 0, x
+               [[40, 0.3], [40., 0.6], [40.0, 0.1]], # IP = 1, x
+               [[40.002, 2], [39.999, 10], [40.001, 10], [39.998, 2]],
+               [[80,1]]],
+              [[[40, 0.2]], # IP = 0, y
+               [[40, 0.2]],
+               [[40, 0.2]],
+               [[80.001,1], [79.999,1]]]], # IP = 3, y
 # Kicker "x" and "y" positions at the given IP in um in the frame where the
 # bunch center of the kicked bunch before beam-beam was at zero. Each vector
 # can have either one or "n_step" kicker positions for a given IP, where

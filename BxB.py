@@ -31,10 +31,10 @@ from collections import namedtuple
 Kicked = namedtuple("Kicked",
                     ["momentum", "Z", "ip", "beta",
                      "next_phase_over_2pi", "exact_phases",
-                     "sigma_weight"])
+                     "gaussian"])
 Kickers = namedtuple("Kickers",
                      ["Z", "n_particles",
-                      "sigma_weight", "position"])
+                      "gaussian", "position"])
 Sim = namedtuple("Sim",
                  ["n_points", "n_turns", "kick_model",
                   "n_sigma_cut",
@@ -268,8 +268,8 @@ def beam_beam(kicked, kickers, sim, quiet = False):
   # Vector of pairs of Gaussian sigmas in um and the corresponding weights of
   # the multi-Gaussian kicked bunch density in "x" and "y". All Gaussians should
   # have a common mean at zero. The weights might be given not normalized.
-    sigma_weight = [[[40, 0.2], [40.0, 0.8]],
-                    [[39.99, 0.3], [40, 0.7]]])
+    gaussian = [[[40, 0.2], [40.0, 0.8]],
+                [[39.99, 0.3], [40, 0.7]]])
   
   # -------------------- Kickers parameters --------------------
   pos_x = [10*i for i in range(21)]
@@ -286,14 +286,14 @@ def beam_beam(kicked, kickers, sim, quiet = False):
   # without any extrapolation via beta. In other words, such kicker sigmas, in
   # general, can differ from the ones at the "kicked.ip" where the kicked sigmas
   # are specified.
-    sigma_weight = [[[[40, 0.2], [40.0, 0.8]],  # IP = 0, x
-                     [[40, 0.3], [40., 0.6], [40.0, 0.1]], # IP = 1, x
-                     [[40.002, 2], [39.999, 10], [40.001, 10], [39.998, 2]],
-                     [[80,1]]],
-                    [[[40, 0.2]], # IP = 0, y
-                     [[40, 0.2]],
-                     [[40, 0.2]],
-                     [[80.001,1], [79.999,1]]]], # IP = 3, y
+    gaussian = [[[[40, 0.2], [40.0, 0.8]],  # IP = 0, x
+                  [[40, 0.3], [40., 0.6], [40.0, 0.1]], # IP = 1, x
+                  [[40.002, 2], [39.999, 10], [40.001, 10], [39.998, 2]],
+                  [[80,1]]],
+                 [[[40, 0.2]], # IP = 0, y
+                  [[40, 0.2]],
+                  [[40, 0.2]],
+                  [[80.001,1], [79.999,1]]]], # IP = 3, y
   # Kicker "x" and "y" positions at the given IP in um in the frame where the
   # bunch center of the kicked bunch before beam-beam was at zero. Each vector
   # can have either one or "n_step" kicker positions for a given IP, where
@@ -612,11 +612,11 @@ def beam_beam(kicked, kickers, sim, quiet = False):
                        next_phase_over_2pi = _to_doubles(kicked.next_phase_over_2pi[0] +
                                                          kicked.next_phase_over_2pi[1]),
                        exact_phases = c_bool(kicked.exact_phases),
-                       gaussian = _gaussians_c(kicked.sigma_weight))
+                       gaussian = _gaussians_c(kicked.gaussian))
   kickers_c = _C_Kickers(Z = kickers.Z,
                          n_particles = _to_doubles(kickers.n_particles),
-                         gaussian = _gaussians_c(kickers.sigma_weight[0] +
-                                                 kickers.sigma_weight[1]),
+                         gaussian = _gaussians_c(kickers.gaussian[0] +
+                                                 kickers.gaussian[1]),
                          position = _to_doubles(pos))
   sim_c = _C_Sim(n_ip = n_ip,
                  n_step = n_step,
