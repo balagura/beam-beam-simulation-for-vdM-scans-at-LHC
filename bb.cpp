@@ -138,7 +138,7 @@ void beam_beam(const Kicked& kicked, const Kickers& kickers, const Sim& sim,
     print(cout, kicked, kickers, sim);
   }
   int n_ip = kicked.beta[0].size();
-  if (kicked.ip <= 0 || kicked.ip > n_ip) {
+  if (kicked.ip < 0 || kicked.ip >= n_ip) {
     cerr << "kicked IP is out of range\n";
     exit(1);
   }
