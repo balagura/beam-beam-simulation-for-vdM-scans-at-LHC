@@ -609,7 +609,34 @@ def beam_beam(kicked, kickers, sim, quiet = False):
   # printed only if the corresponding option is explicitly set in "output").
   # 
   '''
+  if (len(kicked.beta) != 2):
+    raise Exception("kicked.beta list should have two components: for x and y\n")
+  if (len(kicked.next_phase_over_2pi) != 2):
+    raise Exception("kicked.next_phase_over_2pi list should have two components: for x and y\n")
+  if (len(kicked.gaussian) != 2):
+    raise Exception("kicked.gaussian list should have two components: for x and y\n")
+  if (len(kickers.gaussian) != 2):
+    raise Exception("kickers.gaussian list should have two components: for x and y\n")
+  if (len(kickers.position) != 2):
+    raise Exception("kickers.position list should have two components: for x and y\n")
+  if (len(sim.density_and_field_interpolators_n_cells_along_grid_side) != 2):
+    raise Exception("sim.density_and_field_interpolators_n_cells_along_grid_side must have 2 elements: " +
+                    "for the densities and the fields\n")
   n_ip = len(kicked.beta[0])
+  if (len(kicked.beta[1]) != n_ip):
+    raise Exception("kicked.beta[0] and kicked.beta[1] must be of equal length == number of IPs\n")
+  if (len(kickers.n_particles) != n_ip):
+    raise Exception("kicked.beta[0] and kickers.n_particles must be of equal length == number of IPs\n")
+  for coor in range(2):
+    if (len(kicked.next_phase_over_2pi[coor]) != n_ip):
+      raise Exception("kicked.beta[0] and kicked.next_phase_over_2pi[" + str(coor) + "] " +
+                      "must be of equal length == number of IPs\n")
+    if (len(kickers.gaussian[coor]) != n_ip):
+      raise Exception("kicked.beta[0] and kickers.gaussian[" + str(coor) + "] " +
+                      "must be of equal length == number of IPs\n")
+    if (len(kickers.position[coor]) != n_ip):
+      raise Exception("kicked.beta[0] and kickers.position[" + str(coor) + "] " +
+                      "must be of equal length == number of IPs\n")
   # recycle stable kicker positions specified as one number
   n_step = max([len(pos_ip)
                 for pos_coor in kickers.position
