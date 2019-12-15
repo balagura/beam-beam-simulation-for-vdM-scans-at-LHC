@@ -56,7 +56,7 @@ struct Sim_C { /* Explanations can be found in the end of this file */
   int n_step; /* number of kicker positions */
   int n_points; /* number of simulated macro-particles */
   int n_turns[PHASES]; /* for NO_BB, ADIABATIC, STABILIZATION, BB phases */
-  char *kick_model; /* "precise", "average" or "precise.minus.average" */
+  char *kick_model; /* "precise", "average" or "precise_minus_average" */
   int n_sigma_cut;  /* default: 5 */
   int density_and_field_interpolators_n_cells_along_grid_side[2]; /* for X/Y
       1D densities and 2D field; default: 500, 500. If 0 - no interpolation */
@@ -281,7 +281,7 @@ extern "C" {
  "kick.model" parameter to one of the following:
       precise
       average
-      precise.minus.average
+      precise_minus_average
  "precise" is the default. In this case the exact kick formula is used.
 
  "average" means constant X,Y-independent kick equal to the value averaged
@@ -293,10 +293,10 @@ extern "C" {
  not modify its shape, so the resulting luminosity change can be computed
  using analytic formula.
 
- "precise.minus.average" kick is simply calculated as the difference
+ "precise_minus_average" kick is simply calculated as the difference
  "precise" - "average". This model allows to compare the "precise" beam-beam
  luminosity correction with the sum of the corrections obtained with
- "precise.minus.average" and "average".
+ "precise_minus_average" and "average".
 
  ....... Output:
  "output" parameter controls what should be calculated and printed after the

@@ -335,12 +335,12 @@ def beam_beam(kicked, kickers, sim, quiet = False):
   # Vector with 4 integers: number of turns in the "no beam-beam", "adiabatic
   # switch on", "stabilization" and "beam-beam" simulation phases.
     n_turns = [1000, 1000, 0, 5000],
-  # One of "precise", "average" or "precise.minus.average". If "precise"
+  # One of "precise", "average" or "precise_minus_average". If "precise"
   # (default), the kick is calculated according to the exact formula. "average"
   # sets the kick to the constant value everywhere in the X,Y-plane. This is
   # equivalent to the field of a dipole magnet. Its strength is chosen to
   # reproduce the precise overall force on the kicked bunch which depends on the
-  # distance between the colliding bunches. "precise.minus.average" sets the
+  # distance between the colliding bunches. "precise_minus_average" sets the
   # kick to the difference between the "precise" and "average" values.
     kick_model = "precise",
   # Controls the limits of 4D phase space volume from which the macro-particles
@@ -512,7 +512,7 @@ def beam_beam(kicked, kickers, sim, quiet = False):
   # "kick.model" parameter to one of the following:
   #      precise
   #      average
-  #      precise.minus.average
+  #      precise_minus_average
   # "precise" is the default. In this case the exact kick formula is used.
   #
   # "average" means constant X,Y-independent kick equal to the value averaged
@@ -524,10 +524,10 @@ def beam_beam(kicked, kickers, sim, quiet = False):
   # not modify its shape, so the resulting luminosity change can be computed
   # using analytic formula.
   #
-  # "precise.minus.average" kick is simply calculated as the difference
+  # "precise_minus_average" kick is simply calculated as the difference
   # "precise" - "average". This model allows to compare the "precise" beam-beam
   # luminosity correction with the sum of the corrections obtained with
-  # "precise.minus.average" and "average".
+  # "precise_minus_average" and "average".
   #
   # ....... Output:
   # "output" parameter controls what should be calculated and printed after the

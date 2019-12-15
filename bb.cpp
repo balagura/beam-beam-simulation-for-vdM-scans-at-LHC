@@ -268,7 +268,7 @@ void beam_beam(const Kicked& kicked, const Kickers& kickers, const Sim& sim,
   }
   enum {PRECISE, PRECISE_MINUS_AVERAGE, AVERAGE} kick_model = PRECISE;
   if (string(sim.kick_model) != "precise") {
-    if (string(sim.kick_model) == "precise.minus.average") {
+    if (string(sim.kick_model) == "precise_minus_average") {
       kick_model = PRECISE_MINUS_AVERAGE;
     } else if (string(sim.kick_model) == "average") {
       kick_model = AVERAGE;
@@ -604,7 +604,7 @@ void beam_beam(const Kicked& kicked, const Kickers& kickers, const Sim& sim,
       // sqrt(beta_ip) / 2 / sin(pi*tune) *
       // sum( angular_kick_at_ip2 * sqrt(beta_ip2) * cos(|phase_ip - phase_ip2| - pi*tune) )
       array<double, 2> analytic_avr_xy = {0., 0.};
-      if (kick_model != PRECISE_MINUS_AVERAGE) { // 0 for precise.minus.average
+      if (kick_model != PRECISE_MINUS_AVERAGE) { // 0 for precise_minus_average
 	for (int coor=0; coor<2; ++coor) {
 	  double pi_tune = M_PI * tune[coor];
 	  double common_factor = sqrt(kicked.beta[coor][ip]) / 2 / sin(pi_tune);

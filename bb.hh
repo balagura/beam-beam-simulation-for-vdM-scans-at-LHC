@@ -51,7 +51,7 @@ struct Kickers { // "kicker" bunches creting the field
 struct Sim {
   int n_points;        // N simulated macro-particles
   int n_turns[PHASES]; // for NO_BB, ADIABATIC, STABILIZATION, BB phases
-  string kick_model;   // "precise", "average" or "precise.minus.average"
+  string kick_model;   // "precise", "average" or "precise_minus_average"
   int n_sigma_cut;     // default: 5
   int density_and_field_interpolators_n_cells_along_grid_side[2]; // for X/Y
   // 1D densities and 2D field; default: 500, 500; if 0 - no interpolation
