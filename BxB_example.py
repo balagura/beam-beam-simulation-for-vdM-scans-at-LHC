@@ -18,7 +18,7 @@
 #
 # Example how to use python interface of B*B
 #
-from BxB import Kicked, Kickers, Sim, Summary, beam_beam
+from BxB import Kicked, Kickers, Sim, Summary, sim, beam_beam
 
 # This example with multiple IPs and with round and elliptical single or
 # multi-Gaussian bunches is almost equivalent to the simplest single IP,
@@ -158,16 +158,21 @@ kickers = Kickers(
               [[0], [0], [0], [0]]]) # kickers at all IPs are immovable in Y
 
 # -------------------- Simulation parameters --------------------
-# All parameters below are set to their defaults
+# One can fill "Sim" named tuple directly or use a helper function "sim"
+# which is more convenient, as all arguments there have the defaults.
+# Eg. in the example below all arguments to "sim()" are commented out,
+# so only the defaults are used.
 #
-sim = Sim(
+s = sim(
 # Number of "macro-particles" traced in the simulation will be slightly less
 # than this number (eg. by 21% for round single Gaussian kicked bunch). See
 # "Initial distribution of macro-particles" below.
-  n_points = 5000,
+# n_points = 5000,
+#
 # Vector with 4 integers: number of turns in the "no beam-beam", "adiabatic
 # switch on", "stabilization" and "beam-beam" simulation phases.
-  n_turns = [1000, 1000, 0, 5000],
+# n_turns = [1000, 1000, 0, 5000],
+#
 # One of "precise", "average" or "precise.minus.average". If "precise"
 # (default), the kick is calculated according to the exact formula. "average"
 # sets the kick to the constant value everywhere in the X,Y-plane. This is
@@ -175,24 +180,28 @@ sim = Sim(
 # reproduce the precise overall force on the kicked bunch which depends on the
 # distance between the colliding bunches. "precise.minus.average" sets the
 # kick to the difference between the "precise" and "average" values.
-  kick_model = "precise",
+# kick_model = "precise",
+#
 # Controls the limits of 4D phase space volume from which the macro-particles
 # are selected. See "Initial distribution of macro-particles" below.
-  n_sigma_cut = 5,
+# n_sigma_cut = 5,
+#
 # Two integers specifying the number of cells in the interpolation grids. The
 # first is for a one-dimensional interpolation of the kicker bunch densities
 # in X and Y, the second is for each side of the two-dimensional X-Y
 # interpolation grid of the kicker fields. If one of these numbers is set to
 # zero, the corresponding interpolation is not performed and the value each
 # time is calculated exactly (CPU consuming). See "Interpolation" below.
-  density_and_field_interpolators_n_cells_along_grid_side = [500, 500],
+# density_and_field_interpolators_n_cells_along_grid_side = [500, 500],
+#
 # If the following parameter is larger than zero, the quality of the
 # interpolations (if any) will be estimated by comparing the mismatches
 # between the exact and the interpolated values at
 # "n_random_points_to_check_interpolation" points randomly distributed inside
 # the interpolation grid. The results will be reported in a file
 # "output_dir"/interpolation_precision.txt.
-  n_random_points_to_check_interpolation = 10000,
+# n_random_points_to_check_interpolation = 10000,
+#
 # If "output" option "points" is specified, all macro-particle positions will
 # be stored to disk. Storage per accelerator turn might require too much
 # space. Instead, one can "select_one_turn_out_of" N turns. Eg. if this
@@ -200,26 +209,30 @@ sim = Sim(
 # 2999, ...  (counting from zero) will be stored. Zero or negative values of
 # "select_one_turn_out_of" are substituted by one. If "points" option is not
 # requested in "output", "select_one_turn_out_of" has no effect.
-  select_one_turn_out_of = 1000,
+# select_one_turn_out_of = 1000,
+#
 # Random seed for the simulation. If specified, the results of the simulation
 # will be fully reproducible. Otherwise, the current time will be used as a
 # seed leading to not reproducible results.
-  seed = 123456789,
+# seed = 123456789,
+#
 # The name of the subdirectory (relative to the current path or absolute)
 # where all simulated files will be stored. This subdirectory is created by
 # the program and should not exist, otherwise the program will terminate
 # without overwriting anything.  '
-  output_dir = "tmp",
+# output_dir = "tmp",
+#
 # A character string with white-space separated options controlling what will
 # be calculated during the simulation. If "output_dir" is not empty (""), for
 # every option "XXXX.XXXX", one compressed file will be created under the name
 # "output_dir/XXXX_XXXX.txt.gz". "output" might include any combination of
 # "integrals_per_turn", "avr_xy_per_turn", "integrals_per_particle",
 # "avr_xy_per_particle", "points" or be empty, see "Output" below.
-  output = "integrals_per_turn avr_xy_per_turn integrals_per_particle avr_xy_per_particle points")
+# output = "integrals_per_turn avr_xy_per_turn integrals_per_particle avr_xy_per_particle points"
+)
 
 # -------------------- Running the simulation --------------------
-summary = beam_beam(kicked, kickers, sim,
+summary = beam_beam(kicked, kickers, s,
                     False) # False/True control whether the input and the
                            # execution progress will be printed to cout
 
