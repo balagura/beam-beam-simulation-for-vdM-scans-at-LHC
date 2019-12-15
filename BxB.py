@@ -225,7 +225,7 @@ def beam_beam(kicked, kickers, sim, quiet = False):
   # specified directly at the IP of the beam-beam interaction, without any
   # extrapolation via beta. In other words, such kicker sigmas, in general,
   # can differ from the ones at this kicked "ip".
-    ip = 1,
+    ip = 0,
   # "x" and "y" vectors with the beta-function values (beta-star) at all
   # simulated interaction points, in meters.
     beta = [[1.5, 1.5, 1.5, 6],
