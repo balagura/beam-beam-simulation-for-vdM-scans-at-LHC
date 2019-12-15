@@ -17,7 +17,7 @@
 // ----------------------------------------------------------------------
 //
 // Calculation of the bunch densities and the kicker electrostatic fields for
-// multi-Gaussian round and elliptical bunch shapes
+// multi-Gaussian round and elliptical bunch densities.
 //
 #ifndef multi_gaussian_hh 
 #define multi_gaussian_hh 1
@@ -73,25 +73,21 @@ struct Multi_XY_Gaussian_bunches {
   //
   // reset number of interaction points (usually followed by the reset of all
   // kicker bunches)
-  void reset_ip_number(int n_ip);
   //
+  void reset_ip_number(int n_ip);
   //
   void reset_kicker_bunch(int ip, // can be 0, 1, 2 , ...
 			  int coor, // 0 for x, 1 for y
 			  const vector<double>& sigmas,
 			  const vector<double>& weights);
   //
-  // "positions[ip][coor]" is a vector of beam positions: it contains the
-  // coordinates of the kicker bunch centers at the interaction point "ip"
-  // along "coor" axis in the frame where the kicked bunch center is at (0,0)
-  //
-  void reset_kicker_positions(vector<array<vector<double>, 2> > positions);
   // Create bilinear interpolators to speed up density and field
   // calculations. The interpolator for one bunch is reused for all identical
   // bunches at other interaction points.
   //
   void reset_interpolators(int n_density_cells,
-			   int n_field_cells);
+			   int n_field_cells,
+			   vector<vector<double> >* position);
   //
   // Functions required in the simulation. They encapsulate everything that
   // dependends on the bunch densities, namely:
@@ -129,20 +125,15 @@ struct Multi_XY_Gaussian_bunches {
   // which is much faster for elliptical or multi-Gaussian bunches
   complex<double> field(double x, double y, int ip) const;
   //
-  // 4) number of interaction points
+  // 4) number of interaction points (for completeness, but not used)
   int n_ip() const;
   //
-  // 5) vector of the vdM scanned x- (for coor=0) or y-coordinates (for
-  // coor=1) of the kicker w.r.t. to the kicked bunch at the interaction point
-  // "ip"
-  const vector<double>& kicker_positions(int ip, int coor) const;
-  //
-  // 6) Whether bilinear interpolation of the field is used?
+  // 5) Whether bilinear interpolation of the field is used?
   //
   bool is_density_interpolated();
   bool is_field_interpolated();
   //
-  // 7) Estimates interpolation accuracy for density and field:
+  // 6) Estimates interpolation accuracy for density and field:
   //
   // for every interaction point "ip" and the coordinate "coor" (0 or 1 for X
   // or Y, respectively), returns the maximal (first in pair) and average
@@ -202,9 +193,7 @@ protected:
   struct Kicker_MultiG : public MultiG_SigSq {
     Kicker_MultiG() : li_density(nullptr) {}
     string reset(const vector<double>& sigmas, const vector<double>& weights);
-    void reset_positions(const vector<double>& positions);
     double density(double x) const;
-    vector<double> position;
     // Kicker bunch density: rho(x,y) = rho(x) * rho(y), where
     //  rho(x) = sum_i wx[i] /sqrt(2 pi)/sigx[i] * exp(-0.5*(x/sigx[i])^2)
     // and same for y.

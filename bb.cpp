@@ -191,19 +191,9 @@ void beam_beam(const Kicked& kicked, const Kickers& kickers, const Sim& sim,
 	bb.reset_kicker_bunch(ip, coor, sig, w);
       }
     }
-    // accumulate beam separations:
-    vector<array<vector<double>, 2> > positions(n_ip); // [ip][coor][step]
-    for (int ip=0; ip<n_ip; ++ip) {
-      for (int coor=0; coor<2; ++coor) {
-	positions[ip][coor].resize(n_step);
-	for (int step=0; step<n_step; ++step) {
-	  positions[ip][coor][step] = position[coor][ip][step];
-	}
-      }
-    }
-    bb.reset_kicker_positions(positions);
     bb.reset_interpolators(sim.density_and_field_interpolators_n_cells_along_grid_side[0],
-			   sim.density_and_field_interpolators_n_cells_along_grid_side[1]);
+			   sim.density_and_field_interpolators_n_cells_along_grid_side[1],
+			   position);
   }
   int n_total_turns = accumulate(sim.n_turns, sim.n_turns + PHASES, 0.);
   double tune[2];
@@ -364,8 +354,8 @@ void beam_beam(const Kicked& kicked, const Kickers& kickers, const Sim& sim,
     for (int step=0; step<n_step; ++step) {
       for (int ip=0; ip<n_ip; ++ip) {
 	output_kicker_positions << step << " " << ip << " "
-				<< bb.kicker_positions(ip, 0)[step] << " "
-				<< bb.kicker_positions(ip, 1)[step] << "\n";
+				<< position[0][ip][step] << " "
+				<< position[1][ip][step] << "\n";
       }
     }
     int n_random = sim.n_random_points_to_check_interpolation;
@@ -413,8 +403,8 @@ void beam_beam(const Kicked& kicked, const Kickers& kickers, const Sim& sim,
   for (int step = 0; step < n_step; ++step) {
     vector<complex<double> > z2(n_ip);
     for (size_t ip=0; ip<z2.size(); ++ip) {
-      z2[ip] = complex<double>(bb.kicker_positions(ip, 0)[step],
-			       bb.kicker_positions(ip, 1)[step]);
+      z2[ip] = complex<double>(position[0][ip][step],
+			       position[1][ip][step]);
     }
     if (!quiet) {
       cout << "Simulating kicker position";

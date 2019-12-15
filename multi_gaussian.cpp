@@ -150,9 +150,6 @@ string Multi_XY_Gaussian_bunches::Kicker_MultiG::reset(const vector<double>& sig
   }
   return "";
 }
-void Multi_XY_Gaussian_bunches::Kicker_MultiG::reset_positions(const vector<double>& positions) {
-  position = positions;
-}
 double Multi_XY_Gaussian_bunches::Kicker_MultiG::density(double x) const {
   double prob = 0;
   for (size_t i=0; i<sig.size(); ++i) prob += exp_w[i] * g(x / sig[i]);
@@ -195,34 +192,6 @@ void Multi_XY_Gaussian_bunches::reset_kicker_bunch(int ip, // can be 0, 1, 2 , .
     exit(1);
   }
 }
-void Multi_XY_Gaussian_bunches::reset_kicker_positions(vector<array<vector<double>, 2> > positions) {
-  if (kicker.size() != positions.size()) {
-    cerr << "Positions are given for the wrong number of IPs (" << positions.size()
-	 << ", expected " << kicker.size() << ")\n";
-    exit(1);
-  }
-  // Require that the number of beam separations per IP and coordinate is either one or maximal
-  size_t n_max = 0;
-  for (int ip=0; ip<kicker.size(); ++ip) {
-    const auto& x = positions[ip];
-    n_max = max(n_max, max(x[0].size(), x[1].size()));
-  }  
-  for (int ip=0; ip<kicker.size(); ++ip) {
-    for (size_t coor=0; coor<2; ++coor) {
-      vector<double>& x = positions[ip][coor];
-      if (x.size() != n_max) {
-	if (x.size() == 1) {
-	  x.resize(n_max, x[0]); // recycle x[0] to form vector of n_max identical elements
-	} else {
-	  cerr << "The number of beam separations per IP and coordinate must be either one or maximal ("
-	       << n_max << ")\n";
-	  exit(1);
-	}
-      }
-      kicker[ip][coor].reset_positions(x);      
-    }
-  }
-}
 ostream& operator<<(ostream& os, const Multi_XY_Gaussian_bunches::MultiG& x) {
   os << "sigma (weight) = ";
   for (size_t i=0; i<x.sig.size(); ++i) {
@@ -236,7 +205,8 @@ bool operator<(const Multi_XY_Gaussian_bunches::MultiG& a, const Multi_XY_Gaussi
   // vectors and arrays are compared by default lexicographically
 }
 void Multi_XY_Gaussian_bunches::reset_interpolators(int n_density_cells,
-						    int n_field_cells) {
+						    int n_field_cells,
+						    vector<vector<double> >* position) {
   if (n_density_cells > 0) {
     // group identical X or Y kicker bunch ditributions into a map
     map<MultiG, vector<LI::Ip_Coor> > m;
@@ -259,8 +229,8 @@ void Multi_XY_Gaussian_bunches::reset_interpolators(int n_density_cells,
       // first/second = min/max, initialize min by maximal double and vice versa
       for (auto ip_coor: p.second) {
 	int ip = ip_coor.ip, coor = ip_coor.coor;
-	Kicker_MultiG& k = kicker[ip][coor];
-	auto r = minmax_element(k.position.begin(), k.position.end());
+	vector<double>& p = position[coor][ip];
+	auto r = minmax_element(p.begin(), p.end());
 	// Positions are specified in the frame where the kicked bunch is at
 	// (0,0), while the density map - with the kicker at (0,0). So, for the
 	// density map the positions should be subtracted and min/max - swapped.
@@ -304,9 +274,9 @@ void Multi_XY_Gaussian_bunches::reset_interpolators(int n_density_cells,
       // initialize min by maximal double and vice versa
       range[1] = range[0] = make_pair(numeric_limits<double>::max(), -numeric_limits<double>::max());
       for (int ip: p.second) { // ip = kicker index
-	Kicker_MultiG_XY& k = kicker[ip];
 	for (int coor=0; coor<2; ++coor) {
-	  auto r = minmax_element(k[coor].position.begin(), k[coor].position.end());
+	  vector<double>& p = position[coor][ip];
+	  auto r = minmax_element(p.begin(), p.end());
 	  // Positions are specified in the frame where the kicked bunch is at
 	  // (0,0), while the field map - with the kicker at (0,0). So, for the
 	  // field map the positions should be subtracted and min/max - swapped:
@@ -374,9 +344,6 @@ complex<double> Multi_XY_Gaussian_bunches::Kicker_MultiG_XY::field(double x, dou
   return E;
 }
 int Multi_XY_Gaussian_bunches::n_ip() const { return kicker.size(); }
-const vector<double>& Multi_XY_Gaussian_bunches::kicker_positions(int ip, int coor) const {
-  return kicker[ip][coor].position;
-}
 bool Multi_XY_Gaussian_bunches::is_density_interpolated() { return !lis.empty(); }
 // check bis[0] only, others should be the same since the interpolation is
 // switched on/off for all IPs at once
