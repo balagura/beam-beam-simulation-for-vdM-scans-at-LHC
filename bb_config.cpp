@@ -96,7 +96,7 @@ void beam_beam_config(Config& c,
     string name = "sim.select_one_turn_out_of";
     sim->select_one_turn_out_of = c.defined(name) ? c(name) : 1000;
   }
-  sim->seed = c.defined("sim.seed") ? c("sim.seed") : 10000;
+  sim->seed = c.defined("sim.seed") ? c("sim.seed") : time(NULL);
   sim->output_dir = c.defined("sim.output_dir") ? c.s("sim.output_dir") : "";
   sim->output = "";
   if (c.defined("sim.output")) {
