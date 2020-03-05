@@ -26,6 +26,7 @@
 #
 from ctypes import *
 from collections import namedtuple
+import time # for time.time() random seeding
 
 # ---------- Input parameters ----------
 Kicked = namedtuple("Kicked",
@@ -45,7 +46,7 @@ def sim(n_points = 5000, n_turns = [1000, 1000, 0, 5000], kick_model = "precise"
         n_sigma_cut = 5,
         density_and_field_interpolators_n_cells_along_grid_side = [500, 500],
         n_random_points_to_check_interpolation = 10000,
-        select_one_turn_out_of = 1000, seed = 123456789, output_dir = "tmp",
+        select_one_turn_out_of = 1000, seed = int(time.time()), output_dir = "tmp",
         output = "integrals_per_turn avr_xy_per_turn integrals_per_particle avr_xy_per_particle points"):
   '''
   Helper function returning "Sim" structure with the parameters of the simulation to be used
