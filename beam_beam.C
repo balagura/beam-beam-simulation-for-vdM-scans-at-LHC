@@ -23,15 +23,15 @@ using namespace std::complex_literals;
 
 int main(int argc, char** argv) {
   // -------------------- Across 2D X-Y plane with weights --------------------
-  // Our integral is 4-dimensional: over X,X',Y,Y'. But, one can integrate over
-  // X-X', Y-Y' "circles" by averaging over turns, as one point "rotates" and
-  // "swipes" those circles. So, one can integrate only over "circle" radii (rX,
-  // rY). This is done below using 2-dimensional rX, rY Gaussian distribution,
-  // it is covered by the grid of points inside the circle with R = 5 sigma. The
-  // 2D Gaussian weight is assigned to every point, then the integral is
-  // calculated as the sum of (2nd bunch densities * weight) over the sample of
-  // "particles" starting from this grid with random phases and "turning" many
-  // times.
+  // Our integral is 4-dimensional: over X,X',Y,Y'. But, one can integrate
+  // over X-X', Y-Y' "circles" by averaging over turns, as one point "rotates"
+  // and "swipes" those circles. So, one can integrate only over "circle"
+  // radii (rX, rY). This is done below using 2-dimensional rX, rY Gaussian
+  // distribution, it is covered by the grid of points inside the circle with
+  // R = N.sigma * sigma, where N.sigma = 5 by default. The 2D Gaussian weight
+  // is assigned to every point, then the integral is calculated as the sum of
+  // (2nd bunch densities * weight) over the sample of "particles" starting
+  // from this grid with random phases and "turning" many times.
   string config_file;
   if (argc != 2) {
     cout << "Usage: <program name> <configuration file>\n";
@@ -120,7 +120,6 @@ int main(int argc, char** argv) {
   double sig2_sq = sig2 * sig2;
   double two_sig1_sq = 2 * sig1_sq;
   double two_sig2_sq = 2 * sig2_sq;
-  double sig_sq_limit = 25 * sig2_sq;
   double k_int = 0.5 / M_PI / sig2_sq;
   // kick
   double k = 2 * c("Z1") * c("Z2") * alpha * hbar * N2 /
@@ -215,9 +214,11 @@ int main(int argc, char** argv) {
   }
   //
   // sqrt(N.points) will be used to sample rX and rY coordinates in the interval
-  // [0, 5*sig]
+  // [0, N.sigma*sig]
   int N_sqrt = int(sqrt(N_points));
-  double rXY_bin = 5 * sig1 / N_sqrt;
+  int n_sigma = c.defined("N.sigma") ? c["N.sigma"] : 5;
+  double sig_sq_limit = n_sigma * n_sigma * sig2_sq;
+  double rXY_bin = n_sigma * sig1 / N_sqrt;
   vector<double> rXY_bins(N_sqrt);
   for (int i=0; i<N_sqrt; ++i) rXY_bins[i] = (i + 0.5) * rXY_bin;
   // only N_points_in_step <= N_points will be used in rx, ry, w:
@@ -232,8 +233,8 @@ int main(int argc, char** argv) {
     for (int ix=0; ix<N_sqrt; ++ix) {
       for (int iy=0; iy<N_sqrt; ++iy) {
 	complex<double> z1(rXY_bins[ix], rXY_bins[iy]);
-	// select only 5*sig circle around 1st bunch center
-	// from 5sig X 5sig rectangle
+        // select only N.sigma*sig circle around 1st bunch center
+        // from (N.sigma*sig) X (N.sigma*sig) rectangle
 	if (norm(z1) < sig_sq_limit) {
 	  rx[N_points_in_step] = real(z1);
 	  ry[N_points_in_step] = imag(z1);
