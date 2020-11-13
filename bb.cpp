@@ -396,6 +396,10 @@ void beam_beam(const Kicked& kicked, const Kickers& kickers, const Sim& sim,
   }
   Outputs output(n_ip, n_points, max_xy_r, sim.output, output_dir);
   summary->resize(n_ip, vector<BB_Summary_Per_Step_IP>(n_step));
+  //
+  size_t n_threads = thread::hardware_concurrency();
+  if (n_threads == 0) n_threads = 1;
+  size_t n_points_per_core = n_points / n_threads;  
   // Initial point amplitudes (rX, rY) were prepared for ip=0, so simulation
   // loop should also start from ip=0
   //
@@ -474,114 +478,120 @@ void beam_beam(const Kicked& kicked, const Kickers& kickers, const Sim& sim,
 				k_const[1] * imag(field)) - k_average;
        }
       };
+    // define random numbers here so that they are reproducible in threads,
+    // otherwise they would depend on undefined thread's execution order
+    vector<double> random_phases(2*n_points);
+    generate(random_phases.begin(), random_phases.end(), drand48);
     // prepare n_points threads to run in parallel
-    vector<thread> threads(n_points);
     auto loop = [&rx, &ry, &w, &bb, z2, step,
 		 &transportation_factor, &kick,
 		 &sim, &n_ip, &output, &selected_turns,
+		 &random_phases,
 		 kick_model]
-      (int i, double rnd1, double rnd2) {
+      (int i) {
 		  // For every (rx,ry) pair obtain X-X', Y-Y' 4-dimensional
 		  // coordinates by random rotation around X-X' and Y-Y' circles
 		  complex<double>
-		   xZ = rx[i] * exp(2i * M_PI * rnd1),
-		   yZ = ry[i] * exp(2i * M_PI * rnd2);
+		    xZ = rx[i] * exp(2i * M_PI * random_phases[2*i]),
+		    yZ = ry[i] * exp(2i * M_PI * random_phases[2*i+1]);
 		  int i_turn = 0;
-		 //
-		 for (int phase = 0; phase < PHASES; ++phase) {
-		   for (int phase_turn=0; phase_turn<sim.n_turns[phase]; ++phase_turn, ++i_turn) {
-		     for (size_t ip=0; ip<n_ip; ++ip) {
-		       // It is more convenient to fill statistics before the
-		       // propagation through the ring and before the
-		       // beam-beam: then the statistics and the
-		       // transportation are performed from the same ip (in
-		       // particular, with the same beta) and one can start
-		       // both from ip=0.  Note, however, that with the chosen
-		       // logic the first turn in ip=0 is always without
-		       // beam-beam (one starts from the prepared randomized xZ,
-		       // yZ coordinates)
-		       //
-		       // Overlap integral is calculated as a sum of (2nd bunch profile
-		       // density * weight) over the sample of 1st bunch "particles".
-		       //
-		       complex<double> z1 = complex<double>(real(xZ), real(yZ));
-		       complex<double> z1_minus_z2 = z1 - z2[ip];
-		       double rho2 = bb.kicker_density(real(z1_minus_z2), imag(z1_minus_z2), ip);
-		       // Integrals_Per_Particle keeps integrals for bunches with
-		       // densities concentrated at one particle's point
-		       // (delta-function density), so weight = 1. They will be
-		       // reweighted with w[i] in the calculation of the final
-		       // overlap integral appearing in summary
-		       output.get<Integrals_Per_Particle>(ip).add(phase, i, rho2); // always filled
-		       if (output.is_active<Avr_XY_Per_Particle>(ip)) {
-			 output.get<Avr_XY_Per_Particle>(ip).add(phase, i, z1);
-		       }
-		       if (output.is_active<Integrals_Per_Turn>(ip)) {
-			 // Integrals_Per_Turn are reweighted immediately
-			 output.get<Integrals_Per_Turn>(ip).add(i_turn, rho2 * w[i]);
-		       }
-		       if (output.is_active<Avr_XY_Per_Turn>(ip)) {
-			 output.get<Avr_XY_Per_Turn>(ip).add(i_turn, z1 * w[i]);
-		       }
-		       if (output.is_active<Points>(ip) && (i_turn + 1) %
-			   selected_turns == 0) {
-			 // It is more convenient here to count from one,
-			 // eg. consider i_turn+1. Then, it runs in the range
-			 // 1...N_turns. Only multiples of
-			 // selected_turns are written out. Eg. if
-			 // selected_turns > 1 and N_turns is the
-			 // multiple of selected_turns: the last
-			 // i_turn + 1 = N_turn is written, while the first
-			 // i_turn + 1 = 1 - not.
-			 int j_turn = (i_turn + 1) / selected_turns - 1;
-			 // in other words: j_turn+1 = (i_turn+1) /
-			 // selected_turns, where i,j_turn + 1
-			 // correspond to counting from one.  Last j_turn+1 =
-			 // N_turn/select_runs.
-			 output.get<Points>(ip).add(j_turn, i, xZ, yZ);
-		       }
-		       // transport to next ip: kick + turn
-		       complex<double> k = kick(ip, phase, phase_turn, z1_minus_z2);
-		       // The momentum kick is subtracted below because of
-		       // the minus sign in the definition of eg. zX = X -
-		       // iX'. The kick is added to X', so that i*kick is
-		       // subtracted from zX.
-		       //
-		       // "transportation_factor" changes scale in next IP
-		       // according to sqrt(beta(next ip)/beta(this)) and
-		       // turns the phase
-		       xZ = (xZ - 1i * real( k )) * transportation_factor[0][ip];
-		       yZ = (yZ - 1i * imag( k )) * transportation_factor[1][ip];
-		     }
-		   }
-		 }
-		 // Do not multiply *_per_particle variables by w[i] even
-		 // here, but assume they correspond to rho1 density 100%
-		 // concentrated at the simulated particle (or
-		 // circle). Normalize only by n_turns
-		 for (size_t ip=0; ip<n_ip; ++ip) {
-		   for (int phase = 0; phase < PHASES; ++phase) {
-		     int n_turns = sim.n_turns[phase];
-		     auto& integ = output.get<Integrals_Per_Particle>(ip);
-		     integ.normalize_by_n_turns(n_turns, phase, i);
-		     if (output.is_active<Avr_XY_Per_Particle>(ip)) {
-		       auto& avr_xy = output.get<Avr_XY_Per_Particle>(ip);
-		       avr_xy.normalize_by_n_turns(n_turns, phase, i);
-		     }
-		   }
-		 }
+		  //
+		  for (int phase = 0; phase < PHASES; ++phase) {
+		    for (int phase_turn=0; phase_turn<sim.n_turns[phase]; ++phase_turn, ++i_turn) {
+		      for (size_t ip=0; ip<n_ip; ++ip) {
+			// It is more convenient to fill statistics before the
+			// propagation through the ring and before the
+			// beam-beam: then the statistics and the
+			// transportation are performed from the same ip (in
+			// particular, with the same beta) and one can start
+			// both from ip=0.  Note, however, that with the chosen
+			// logic the first turn in ip=0 is always without
+			// beam-beam (one starts from the prepared randomized xZ,
+			// yZ coordinates)
+			//
+			// Overlap integral is calculated as a sum of (2nd bunch profile
+			// density * weight) over the sample of 1st bunch "particles".
+			//
+			complex<double> z1 = complex<double>(real(xZ), real(yZ));
+			complex<double> z1_minus_z2 = z1 - z2[ip];
+			double rho2 = bb.kicker_density(real(z1_minus_z2), imag(z1_minus_z2), ip);
+			// Integrals_Per_Particle keeps integrals for bunches with
+			// densities concentrated at one particle's point
+			// (delta-function density), so weight = 1. They will be
+			// reweighted with w[i] in the calculation of the final
+			// overlap integral appearing in summary
+			output.get<Integrals_Per_Particle>(ip).add(phase, i, rho2); // always filled
+			if (output.is_active<Avr_XY_Per_Particle>(ip)) {
+			  output.get<Avr_XY_Per_Particle>(ip).add(phase, i, z1);
+			}
+			if (output.is_active<Integrals_Per_Turn>(ip)) {
+			  // Integrals_Per_Turn are reweighted immediately
+			  output.get<Integrals_Per_Turn>(ip).add(i_turn, rho2 * w[i]);
+			}
+			if (output.is_active<Avr_XY_Per_Turn>(ip)) {
+			  output.get<Avr_XY_Per_Turn>(ip).add(i_turn, z1 * w[i]);
+			}
+			if (output.is_active<Points>(ip) && (i_turn + 1) %
+			    selected_turns == 0) {
+			  // It is more convenient here to count from one,
+			  // eg. consider i_turn+1. Then, it runs in the range
+			  // 1...N_turns. Only multiples of
+			  // selected_turns are written out. Eg. if
+			  // selected_turns > 1 and N_turns is the
+			  // multiple of selected_turns: the last
+			  // i_turn + 1 = N_turn is written, while the first
+			  // i_turn + 1 = 1 - not.
+			  int j_turn = (i_turn + 1) / selected_turns - 1;
+			  // in other words: j_turn+1 = (i_turn+1) /
+			  // selected_turns, where i,j_turn + 1
+			  // correspond to counting from one.  Last j_turn+1 =
+			  // N_turn/select_runs.
+			  output.get<Points>(ip).add(j_turn, i, xZ, yZ);
+			}
+			// transport to next ip: kick + turn
+			complex<double> k = kick(ip, phase, phase_turn, z1_minus_z2);
+			// The momentum kick is subtracted below because of
+			// the minus sign in the definition of eg. zX = X -
+			// iX'. The kick is added to X', so that i*kick is
+			// subtracted from zX.
+			//
+			// "transportation_factor" changes scale in next IP
+			// according to sqrt(beta(next ip)/beta(this)) and
+			// turns the phase
+			xZ = (xZ - 1i * real( k )) * transportation_factor[0][ip];
+			yZ = (yZ - 1i * imag( k )) * transportation_factor[1][ip];
+		      }
+		    }
+		  }
+		  // Do not multiply *_per_particle variables by w[i] even
+		  // here, but assume they correspond to rho1 density 100%
+		  // concentrated at the simulated particle (or
+		  // circle). Normalize only by n_turns
+		  for (size_t ip=0; ip<n_ip; ++ip) {
+		    for (int phase = 0; phase < PHASES; ++phase) {
+		      int n_turns = sim.n_turns[phase];
+		      auto& integ = output.get<Integrals_Per_Particle>(ip);
+		      integ.normalize_by_n_turns(n_turns, phase, i);
+		      if (output.is_active<Avr_XY_Per_Particle>(ip)) {
+			auto& avr_xy = output.get<Avr_XY_Per_Particle>(ip);
+			avr_xy.normalize_by_n_turns(n_turns, phase, i);
+		      }
+		    }
+		  }
 		}; // end of loop over tracked particle-points
-    // submit threads:
-    for (int i = 0; i < n_points; ++i) {
-      // supply random numbers here so that they are reproducible: if
-      // drand48() were called in threads, it would depend on undefined
-      // thread's execution order
-      threads[i] = thread(loop, i, drand48(), drand48());
+    vector<thread> threads(n_threads);
+    // submit n_threads
+    for (size_t i_thread=0, i_point=0; i_thread<n_threads; ++i_thread, i_point+=n_points_per_core) {
+       threads[i_thread] = thread([&loop](size_t first_point, size_t last_point) {
+				    for (int i=first_point; i<last_point; ++i) loop(i);
+				  },
+	                          i_point,
+	                          // last thread takes all the rest
+	                          i_thread == n_threads-1 ? n_points : i_point + n_points_per_core);
     }
-    // wait for completion of all threads:
-    for (int i = 0; i < n_points; ++i) threads[i].join();
+    // wait for completion of all threads
+    for (int i_thread = 0; i_thread < n_threads; ++i_thread) threads[i_thread].join();
     //
-    
     output.write(step);
     // write kicker_positions and summary
     for (int ip=0; ip<n_ip; ++ip) {
