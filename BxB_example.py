@@ -104,7 +104,7 @@ kicked = Kicked(
 #
 # kicked.next_phase_over_2pi.x = 8.510988 32.325602 56.037198 64.310000
 # kicked.next_phase_over_2pi.y = 7.604246 29.558681 51.362280 59.320000
-  
+#  
 # If values in "next_phase_over_2pi" are given with 2 (3) digits after the
 # comma, after 100 (1000) turns the points return almost to their original
 # positions if the beam-beam effect is small (as 100* or 1000 * phases/2pi
@@ -118,7 +118,23 @@ kicked = Kicked(
 # oscillations in X-Y plane. If this is not desired, "exact_phases" should be
 # set to TRUE. Then all phases/2pi are used exactly as they are given.
   exact_phases = False,
-    
+#
+# "x" and "y" vectors with the longitudinal bunch sigma projections to "x" or
+# "y" (perpendicular to the kicker beam), respectively, at all simulated
+# interaction points, in microns. If the beam crossing angle is zero at the
+# given point, the projections vanish. Otherwise eg. "x"-projection is equal
+# to alpha * sigmaZ * cos(beta_x), where alpha is the crossing angle between
+# the kicker and the vector difference v1 - v2, where v1,v2 are the beam
+# velocities, and beta_x is the angle between x and the projection of the
+# crossing plane to the x-y plane. Note, these contributions of the
+# longitudinal spread to the transverse widths are important only for
+# calculating luminosities and do not affect the transverse dynamics of the
+# particles. For example, if the luminosity at some point ip is not needed,
+# sigma_z_projection$x[ip], sigma_z_projection$y[ip] can be set arbitrarily,
+# eg. to zeros.
+  sigma_z_projection = [[0.01, 0.02, 0.01, 0.02],
+                        [0.02, 0.01, 0.02, 0.01]],
+#
 # Vector of pairs of Gaussian sigmas in um and the corresponding weights of
 # the multi-Gaussian kicked bunch density in "x" and "y". All Gaussians should
 # have a common mean at zero. The weights might be given not normalized.
