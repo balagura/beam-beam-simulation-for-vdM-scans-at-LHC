@@ -40,6 +40,7 @@ struct Kicked { // "kicked" ie. simulated bunch
   vector<double> beta[2];                // [coor][ip], beta-star
   vector<double> next_phase_over_2pi[2]; // [coor][ip], absolute phases
   bool exact_phases;                     // add irrationality to phases?
+  vector<double> sig_z_projection[2];    // [coor][ip], sigmaZ transverse projection
   vector<Gaussian> gaussian[2];          // [coor][gauss]
 };
 struct Kickers { // "kicker" bunches creting the field
