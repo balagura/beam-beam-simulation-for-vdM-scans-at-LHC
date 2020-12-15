@@ -49,6 +49,15 @@ void beam_beam_config(Config& c,
 	       };
   for (int coor=0; coor<2; ++coor) {
     kicked->beta[coor] = c.vd(c_name("kicked", "beta", coor));
+    {
+      string sig_z_projection_name = c_name("kicked", "sigma_z_projection", coor);
+      if (c.defined(sig_z_projection_name)) {
+	kicked->sig_z_projection[coor] = c.vd(sig_z_projection_name);
+      } else {
+	kicked->sig_z_projection[coor].clear();
+	kicked->sig_z_projection[coor].resize(n_ip, 0.);	
+      }
+    }
     kicked->next_phase_over_2pi[coor] = c.vd(c_name("kicked", "next_phase_over_2pi", coor));
     fill_g(c_name("kicked", "gaussian", coor), kicked->gaussian[coor]);
     kickers->gaussian[coor].resize(n_ip);
