@@ -54,6 +54,7 @@ bool consistent_n_ip(const Kicked& kicked, const Kickers& kickers, const Sim& si
   if (kickers.n_particles.size() != n_ip) return false;
   for (int coor=0; coor<2; ++coor) {
     if (kicked.beta[coor].size() != n_ip ||
+	kicked.sig_z_projection[coor].size() != n_ip ||
 	kicked.next_phase_over_2pi[coor].size() != n_ip ||
 	kickers.gaussian[coor].size() != n_ip ||
 	kickers.position[coor].size() != n_ip)
@@ -81,6 +82,11 @@ void print(ostream& os, const Kicked& kicked, const Kickers& kickers, const Sim&
   write_vec_in_brackets(os, "  phases/2pi X = ", kicked.next_phase_over_2pi[0], "\n");
   write_vec_in_brackets(os, "             Y = ", kicked.next_phase_over_2pi[1], "\n");
   if (kicked.exact_phases) cout << "  phases will be used exactly as given\n";
+  if (any_of(kicked.sig_z_projection[0].begin(), kicked.sig_z_projection[0].end(), [](double x) { return x!=0; }) ||
+      any_of(kicked.sig_z_projection[1].begin(), kicked.sig_z_projection[1].end(), [](double x) { return x!=0; })) {
+    write_vec_in_brackets(os, "  sigma Z projection to X = ", kicked.sig_z_projection[0], "\n");
+    write_vec_in_brackets(os, "                     to Y = ", kicked.sig_z_projection[1], "\n");
+  }
   os << "  at IP " << kicked.ip
      << " Gaussian (sigma, weight) in X "
      << kicked.gaussian[0]
@@ -179,7 +185,8 @@ void beam_beam(const Kicked& kicked, const Kickers& kickers, const Sim& sim,
 	sig[gauss] = kg[gauss].sig;
 	w  [gauss] = kg[gauss].w;
       }
-      bb.reset_kicked_bunch(kicked.ip, coor, sig, w, kicked.beta[coor], sim.n_sigma_cut);
+      bb.reset_kicked_bunch(kicked.ip, coor, sig, w,
+			    kicked.beta[coor], sim.n_sigma_cut);
       for (int ip=0; ip<n_ip; ++ip) {
 	auto& ksg = kickers.gaussian[coor][ip];
 	sig.resize(ksg.size());
@@ -188,7 +195,7 @@ void beam_beam(const Kicked& kicked, const Kickers& kickers, const Sim& sim,
 	  sig[gauss] = ksg[gauss].sig;
 	  w  [gauss] = ksg[gauss].w;
 	}
-	bb.reset_kicker_bunch(ip, coor, sig, w);
+	bb.reset_kicker_bunch(ip, coor, sig, w, kicked.sig_z_projection[coor][ip]);
       }
     }
     bb.reset_interpolators(sim.density_and_field_interpolators_n_cells_along_grid_side[0],
