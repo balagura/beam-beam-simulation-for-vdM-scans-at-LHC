@@ -79,7 +79,8 @@ struct Multi_XY_Gaussian_bunches {
   void reset_kicker_bunch(int ip, // can be 0, 1, 2 , ...
 			  int coor, // 0 for x, 1 for y
 			  const vector<double>& sigmas,
-			  const vector<double>& weights);
+			  const vector<double>& weights,
+			  double kicked_sigma_z_projection);
   //
   // Create bilinear interpolators to speed up density and field
   // calculations. The interpolator for one bunch is reused for all identical
@@ -171,6 +172,7 @@ protected:
     vector<double> sig, w;
   protected:
     static double g(double chi) { return exp(-0.5 * chi * chi); };
+    static double g_sig2(double x, double sig_sq) { return exp(-0.5 * x * x / sig_sq); };
   };
   friend ostream& operator<<(ostream& os, const MultiG& mg);
   friend bool operator<(const MultiG&, const MultiG&);
@@ -192,7 +194,8 @@ protected:
 
   struct Kicker_MultiG : public MultiG_SigSq {
     Kicker_MultiG() : li_density(nullptr) {}
-    string reset(const vector<double>& sigmas, const vector<double>& weights);
+    string reset(const vector<double>& sigmas, const vector<double>& weights,
+		 double sigma_z_projection);
     double density(double x) const;
     // Kicker bunch density: rho(x,y) = rho(x) * rho(y), where
     //  rho(x) = sum_i wx[i] /sqrt(2 pi)/sigx[i] * exp(-0.5*(x/sigx[i])^2)
@@ -201,6 +204,7 @@ protected:
     //
     vector<double> exp_w;
     const Linear_interpolator *li_density;
+    double sig_z_projection_sq;
   };
 
   struct Kicker_MultiG_XY : public array<Kicker_MultiG, 2> {
