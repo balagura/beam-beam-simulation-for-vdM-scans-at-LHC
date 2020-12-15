@@ -141,18 +141,20 @@ double Multi_XY_Gaussian_bunches::Kicked_MultiG::not_normalized_r_density(double
 }
 // Kicker_MultiG functions
 string Multi_XY_Gaussian_bunches::Kicker_MultiG::reset(const vector<double>& sigmas,
-						       const vector<double>& weights) {
+						       const vector<double>& weights,
+						       double sigma_z_projection) {
   string err = Multi_XY_Gaussian_bunches::MultiG_SigSq::reset(sigmas, weights);
   if (err != "") return err;
   exp_w.resize(w.size());
   for (size_t i=0; i<exp_w.size(); ++i) {
     exp_w[i] = w[i] / sqrt(2 * M_PI) / sig[i];
   }
+  sig_z_projection_sq = sigma_z_projection * sigma_z_projection;
   return "";
 }
 double Multi_XY_Gaussian_bunches::Kicker_MultiG::density(double x) const {
   double prob = 0;
-  for (size_t i=0; i<sig.size(); ++i) prob += exp_w[i] * g(x / sig[i]);
+  for (size_t i=0; i<sig.size(); ++i) prob += exp_w[i] * g_sig2(x, sig_sq[i] + sig_z_projection_sq);
   return prob;
 }
 //
@@ -185,8 +187,9 @@ void Multi_XY_Gaussian_bunches::reset_ip_number(int n_ip) { kicker.resize(n_ip);
 void Multi_XY_Gaussian_bunches::reset_kicker_bunch(int ip, // can be 0, 1, 2 , ...
 						   int coor, // 0 for x, 1 for y
 						   const vector<double>& sigmas,
-						   const vector<double>& weights) {
-  string err = kicker[ip][coor].reset(sigmas, weights);
+						   const vector<double>& weights,
+						   double kicked_sigma_z_projection) {
+  string err = kicker[ip][coor].reset(sigmas, weights, kicked_sigma_z_projection);
   if (err != "") {
     cerr << "Kicker." << ip+1 << "." << "xy"[coor] << ": " << err << endl;
     exit(1);
