@@ -32,7 +32,7 @@ import time # for time.time() random seeding
 Kicked = namedtuple("Kicked",
                     ["momentum", "Z", "ip", "beta",
                      "next_phase_over_2pi", "exact_phases",
-                     "gaussian"])
+                     "sigma_z_projection", "gaussian"])
 Kickers = namedtuple("Kickers",
                      ["Z", "n_particles",
                       "gaussian", "position"])
@@ -86,6 +86,7 @@ class _C_Kicked(Structure) :
              ("beta", POINTER(c_double)),
              ("next_phase_over_2pi", POINTER(c_double)),
              ("exact_phases", c_bool),
+             ("sigma_z_projection", POINTER(c_double)),
              ("gaussian", _C_Multi_Gaussian*2)]
 
 class _C_Kickers(Structure) :
@@ -288,6 +289,22 @@ def beam_beam(kicked, kickers, sim, quiet = False):
   # oscillations in X-Y plane. If this is not desired, "exact_phases" should be
   # set to TRUE. Then all phases/2pi are used exactly as they are given.
     exact_phases = False,
+
+  # "x" and "y" vectors with the longitudinal bunch sigma projections to "x" or
+  # "y" (perpendicular to the kicker beam), respectively, at all simulated
+  # interaction points, in microns. If the beam crossing angle is zero at the
+  # given point, the projections vanish. Otherwise eg. "x"-projection is equal
+  # to alpha * sigmaZ * cos(beta_x), where alpha is the crossing angle between
+  # the kicker and the vector difference v1 - v2, where v1,v2 are the beam
+  # velocities, and beta_x is the angle between x and the projection of the
+  # crossing plane to the x-y plane. Note, these contributions of the
+  # longitudinal spread to the transverse widths are important only for
+  # calculating luminosities and do not affect the transverse dynamics of the
+  # particles. For example, if the luminosity at some point ip is not needed,
+  # sigma_z_projection$x[ip], sigma_z_projection$y[ip] can be set arbitrarily,
+  # eg. to zeros.
+  sigma_z_projection = [[0.01, 0.02, 0.01, 0.02],
+                        [0.02, 0.01, 0.02, 0.01]],
   
   # Vector of pairs of Gaussian sigmas in um and the corresponding weights of
   # the multi-Gaussian kicked bunch density in "x" and "y". All Gaussians should
@@ -616,6 +633,8 @@ def beam_beam(kicked, kickers, sim, quiet = False):
     raise Exception("kicked.beta list should have two components: for x and y\n")
   if (len(kicked.next_phase_over_2pi) != 2):
     raise Exception("kicked.next_phase_over_2pi list should have two components: for x and y\n")
+  if (len(kicked.sigma_z_projection) != 2):
+    raise Exception("kicked.sigma_z_projection list should have two components: for x and y\n")
   if (len(kicked.gaussian) != 2):
     raise Exception("kicked.gaussian list should have two components: for x and y\n")
   if (len(kickers.gaussian) != 2):
@@ -633,6 +652,9 @@ def beam_beam(kicked, kickers, sim, quiet = False):
   for coor in range(2):
     if (len(kicked.next_phase_over_2pi[coor]) != n_ip):
       raise Exception("kicked.beta[0] and kicked.next_phase_over_2pi[" + str(coor) + "] " +
+                      "must be of equal length == number of IPs\n")
+    if (len(kicked.sigma_z_projection[coor]) != n_ip):
+      raise Exception("kicked.beta[0] and kicked.sigma_z_projection[" + str(coor) + "] " +
                       "must be of equal length == number of IPs\n")
     if (len(kickers.gaussian[coor]) != n_ip):
       raise Exception("kicked.beta[0] and kickers.gaussian[" + str(coor) + "] " +
@@ -663,6 +685,8 @@ def beam_beam(kicked, kickers, sim, quiet = False):
                        next_phase_over_2pi = _to_doubles(kicked.next_phase_over_2pi[0] +
                                                          kicked.next_phase_over_2pi[1]),
                        exact_phases = c_bool(kicked.exact_phases),
+                       sigma_z_projection = _to_doubles(kicked.sigma_z_projection[0] +
+                                                        kicked.sigma_z_projection[1]),
                        gaussian = _gaussians_c(kicked.gaussian))
   kickers_c = _C_Kickers(Z = kickers.Z,
                          n_particles = _to_doubles(kickers.n_particles),
