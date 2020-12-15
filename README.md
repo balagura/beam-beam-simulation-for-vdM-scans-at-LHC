@@ -12,8 +12,6 @@ projection. The number of IPs is also arbitrary. In the end of the simulation
 the modifications of the bunch overlap integrals (ie. of the luminosities) due
 to beam-beam are reported.
 
-To cite: https://doi.org/10.5281/zenodo.4122070
-
 ## Usage
 The main function is called `beam_beam`. There are 5 ways to call it.
 
