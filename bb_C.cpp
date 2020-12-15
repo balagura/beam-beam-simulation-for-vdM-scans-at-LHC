@@ -44,10 +44,12 @@ void beam_beam(const Kicked_C* kicked, const Kickers_C* kickers, const Sim_C* si
   k.Z = kicked->Z;
   k.ip = kicked->ip;
   for (int coor=0; coor<2; ++coor) {
-    k.beta[coor].resize(n_ip);
+    k.beta               [coor].resize(n_ip);
+    k.sig_z_projection   [coor].resize(n_ip);
     k.next_phase_over_2pi[coor].resize(n_ip);
     for (int ip=0; ip<n_ip; ++ip) {
-      k.beta[coor][ip] = kicked->beta[coor*n_ip + ip];
+      k.beta               [coor][ip] = kicked->beta               [coor*n_ip + ip];
+      k.sig_z_projection   [coor][ip] = kicked->sig_z_projection   [coor*n_ip + ip];
       k.next_phase_over_2pi[coor][ip] = kicked->next_phase_over_2pi[coor*n_ip + ip];
     }
     convert(kicked->gaussian[coor], &k.gaussian[coor]);
