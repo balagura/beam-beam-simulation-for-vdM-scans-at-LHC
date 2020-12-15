@@ -37,10 +37,11 @@ struct Kicked_C {    /* "kicked" ie. simulated bunch */
   int Z; /* charge of the particles in units of the proton charge */
   int ip; /* interaction point (counting from zero) for which multi-Gaussian
 	     sigmas are given */  
-  double *beta; /* [coor*n_ip + ip], ie. first X, then Y,beta-star function at the
+  double *beta; /* [coor*n_ip + ip], ie. first X, then Y, beta-star function at the
 		   simulated interaction points, in meters */
-  double *next_phase_over_2pi; /* [coor*ip + ip], betatron absolute phases/2pi */
+  double *next_phase_over_2pi; /* [coor*n_ip + ip], betatron absolute phases/2pi */
   bool exact_phases; /* default = false, see below */
+  double *sig_z_projection;    /* [coor*n_ip + ip], first X, then Y, sigmaZ transverse projection */
   Multi_Gaussian_C gaussian[2]; /* X,Y-sigmas and weights at "ip" */
 };
 
@@ -145,6 +146,20 @@ extern "C" {
  them irrational and opens otherwise closed Lissajous figures of betatron
  oscillations in X-Y plane. If this is not desired, "exact_phases" should be
  set to TRUE. Then all phases/2pi are used exactly as they are given.
+
+ Kicked_C::sig_z_projection
+ Specifies the longitudinal bunch sigma projections to "x" or "y"
+ (perpendicular to the kicker beam), at all simulated interaction points, in
+ microns. If the beam crossing angle is zero at the given point, the
+ projections vanish. Otherwise eg. "x"-projection is equal to alpha * sigmaZ *
+ cos(beta_x), where alpha is the crossing angle between the kicker and the
+ vector difference v1 - v2, where v1,v2 are the beam velocities, and beta_x is
+ the angle between x and the projection of the crossing plane to the x-y
+ plane. Note, these contributions of the longitudinal spread to the transverse
+ widths are important only for calculating luminosities and do not affect the
+ transverse dynamics of the particles. For example, if the luminosity at some
+ point ip is not needed, sigma_z_projection$x[ip], sigma_z_projection$y[ip]
+ can be set arbitrarily, eg. to zeros.
 
  Kickers_C::gaussian_x,y
  Defines multi-Gaussian sigmas in um and the corresponding weights of the
