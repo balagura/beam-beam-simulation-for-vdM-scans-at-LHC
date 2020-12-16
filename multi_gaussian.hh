@@ -175,7 +175,6 @@ protected:
     static double g_sig2(double x, double sig_sq) { return exp(-0.5 * x * x / sig_sq); };
   };
   friend ostream& operator<<(ostream& os, const MultiG& mg);
-  friend bool operator<(const MultiG&, const MultiG&);
   struct MultiG_SigSq : public MultiG {
     // This and the following reset() functions return a string with an
     // "error" message. It is empty if no errors are detected.
@@ -206,6 +205,12 @@ protected:
     const Linear_interpolator *li_density;
     double sig_z_projection_sq;
   };
+  // to make maps with MultiG and Kicker_MultiG keys, this is needed in
+  // reset_interpolators().
+  // MultiG is for field (to create bis), not dependent on sig_z_projection,
+  // Kicker_MultiG is for densities (lis) dependent on sig_z_projection
+  friend bool operator<(const MultiG&, const MultiG&);
+  friend bool operator<(const Kicker_MultiG&, const Kicker_MultiG&);
 
   struct Kicker_MultiG_XY : public array<Kicker_MultiG, 2> {
     Kicker_MultiG_XY() : bi_field(nullptr) {}
