@@ -145,11 +145,11 @@ string Multi_XY_Gaussian_bunches::Kicker_MultiG::reset(const vector<double>& sig
 						       double sigma_z_projection) {
   string err = Multi_XY_Gaussian_bunches::MultiG_SigSq::reset(sigmas, weights);
   if (err != "") return err;
+  sig_z_projection_sq = sigma_z_projection * sigma_z_projection;
   exp_w.resize(w.size());
   for (size_t i=0; i<exp_w.size(); ++i) {
-    exp_w[i] = w[i] / sqrt(2 * M_PI) / sig[i];
+    exp_w[i] = w[i] / sqrt(2 * M_PI) / sqrt(sig_sq[i] + sig_z_projection_sq);
   }
-  sig_z_projection_sq = sigma_z_projection * sigma_z_projection;
   return "";
 }
 double Multi_XY_Gaussian_bunches::Kicker_MultiG::density(double x) const {
