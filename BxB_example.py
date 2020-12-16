@@ -232,6 +232,11 @@ s = sim(
 # seed leading to not reproducible results.
 # seed = 123456789,
 #
+# Number of parallel threads to use. If zero (default) or negative, it is
+# determined by the internal C++ call thread::hardware_concurrency(), which
+# usually reports the maximal number allowed by the computer hardware.
+# n_threads = 0,
+#
 # The name of the subdirectory (relative to the current path or absolute)
 # where all simulated files will be stored. This subdirectory is created by
 # the program and should not exist, otherwise the program will terminate

@@ -120,7 +120,8 @@ void print(ostream& os, const Kicked& kicked, const Kickers& kickers, const Sim&
     if (phase != PHASES-1) os << ", ";
   }
   os << "), select one turn out of " << sim.select_one_turn_out_of << "\n";
-  os << "random seed = " << sim.seed << ", cut " << sim.n_sigma_cut << " sigma\n";
+  os << "random seed = " << sim.seed << ", cut " << sim.n_sigma_cut << " sigma, "
+     << "number of threads = " << sim.n_threads << "\n";
   os << "Kick model \"" << sim.kick_model << "\"\n";
   os << "N grid cells to interpolate density / field = ("
      << sim.density_and_field_interpolators_n_cells_along_grid_side[0]
@@ -404,7 +405,12 @@ void beam_beam(const Kicked& kicked, const Kickers& kickers, const Sim& sim,
   Outputs output(n_ip, n_points, max_xy_r, sim.output, output_dir);
   summary->resize(n_ip, vector<BB_Summary_Per_Step_IP>(n_step));
   //
-  size_t n_threads = thread::hardware_concurrency();
+  unsigned int n_threads;
+  if (sim.n_threads <= 0) {
+    n_threads = thread::hardware_concurrency();
+  } else {
+    n_threads = (unsigned int) sim.n_threads;
+  }
   if (n_threads == 0) n_threads = 1;
   size_t n_points_per_core = n_points / n_threads;  
   // Initial point amplitudes (rX, rY) were prepared for ip=0, so simulation

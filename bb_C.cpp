@@ -85,6 +85,7 @@ void beam_beam(const Kicked_C* kicked, const Kickers_C* kickers, const Sim_C* si
   s.n_random_points_to_check_interpolation = sim->n_random_points_to_check_interpolation;  
   s.select_one_turn_out_of = sim->select_one_turn_out_of;
   s.seed = sim->seed;
+  s.n_threads = sim->n_threads;
   s.output_dir = sim->output_dir;
   s.output = sim->output;
   vector<vector<BB_Summary_Per_Step_IP> > sum(n_ip, vector<BB_Summary_Per_Step_IP>(n_step));

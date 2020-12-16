@@ -41,12 +41,13 @@ Sim = namedtuple("Sim",
                   "n_sigma_cut",
                   "density_and_field_interpolators_n_cells_along_grid_side",
                   "n_random_points_to_check_interpolation",
-                  "select_one_turn_out_of", "seed", "output_dir", "output"])
+                  "select_one_turn_out_of", "seed", "n_threads",
+                  "output_dir", "output"])
 def sim(n_points = 5000, n_turns = [1000, 1000, 0, 5000], kick_model = "precise",
         n_sigma_cut = 5,
         density_and_field_interpolators_n_cells_along_grid_side = [500, 500],
         n_random_points_to_check_interpolation = 10000,
-        select_one_turn_out_of = 1000, seed = None, output_dir = "tmp",
+        select_one_turn_out_of = 1000, seed = None, n_threads = 0, output_dir = "tmp",
         output = "integrals_per_turn avr_xy_per_turn integrals_per_particle avr_xy_per_particle points"):
   '''
   Helper function returning "Sim" structure with the parameters of the simulation to be used
@@ -61,7 +62,8 @@ def sim(n_points = 5000, n_turns = [1000, 1000, 0, 5000], kick_model = "precise"
              n_random_points_to_check_interpolation =
              n_random_points_to_check_interpolation,
              select_one_turn_out_of = select_one_turn_out_of,
-             seed = seed, output_dir = output_dir, output = output)
+             seed = seed, n_threads = n_threads,
+             output_dir = output_dir, output = output)
 
 # ---------- Summary format ----------
 Summary = namedtuple("Summary",
@@ -106,6 +108,7 @@ class _C_Sim(Structure) :
              ("n_random_points_to_check_interpolation", c_int),
              ("select_one_turn_out_of", c_int),
              ("seed", c_long),
+             ("n_threads", c_int),
              ("output_dir", c_char_p),
              ("output", c_char_p)]
 
@@ -392,6 +395,11 @@ def beam_beam(kicked, kickers, sim, quiet = False):
   # will be fully reproducible. Otherwise, the current time will be used as a
   # seed leading to not reproducible results.
     seed = 123456789,
+  # Number of parallel threads to use. If zero (default) or
+  # negative, it is determined by the internal C++ call
+  # thread::hardware_concurrency(), which usually reports the maximal
+  # number allowed by the computer hardware.
+    n_threads = 0,
   # The name of the subdirectory (relative to the current path or absolute)
   # where all simulated files will be stored. This subdirectory is created by
   # the program and should not exist, otherwise the program will terminate
@@ -704,6 +712,7 @@ def beam_beam(kicked, kickers, sim, quiet = False):
                  n_random_points_to_check_interpolation = sim.n_random_points_to_check_interpolation,
                  select_one_turn_out_of = sim.select_one_turn_out_of,
                  seed = sim.seed,
+                 n_threads = sim.n_threads,
                  output_dir = c_char_p(sim.output_dir),
                  output = c_char_p(sim.output))
   summary = (_C_Summary*(n_ip*n_step))()

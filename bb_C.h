@@ -64,6 +64,7 @@ struct Sim_C { /* Explanations can be found in the end of this file */
   int n_random_points_to_check_interpolation; /* default: 10000, if 0 - skipped */
   int select_one_turn_out_of; /* for output option "points" */
   long int seed;     /* random seed */
+  int n_threads;     /* number of threads to run in parallel */
   char *output_dir;  /* subdirectory name where output will go */
   char* output;      /* white-space separated list of output options */
 };
