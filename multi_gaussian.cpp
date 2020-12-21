@@ -177,7 +177,7 @@ void Multi_XY_Gaussian_bunches::reset_kicked_bunch(int ip, // Gaussian widths at
   vector<double> sig(sigmas);
   for (auto& s: sig) s *= sqrt(beta_at_all_ips_for_given_coordinate[0] /
 			       beta_at_all_ips_for_given_coordinate[ip]);
-  string err = kicked[coor].reset(sigmas, weights, n_sig_cut);
+  string err = kicked[coor].reset(sig, weights, n_sig_cut);
   if (err != "") {
     cerr << "Kicked bunch, " << "xy"[coor] << "-density: " << err << endl;
     exit(1);
