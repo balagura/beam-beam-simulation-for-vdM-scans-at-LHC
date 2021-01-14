@@ -18,6 +18,9 @@
 #
 # Example how to use python interface of B*B
 #
+# to use function print() in both python 2 and 3:
+from __future__ import print_function
+
 from BxB import Kicked, Kickers, Sim, Summary, sim, beam_beam
 
 # This example with multiple IPs and with round and elliptical single or
@@ -259,9 +262,9 @@ summary = beam_beam(kicked, kickers, s,
 
 # -------------------- Print corrections --------------------
 for step in range(len(summary[0])):
-  print "step =", step
+  print("step =", step)
   for ip in range(len(summary)):
-    print " ", summary[ip][step].correction
+    print(" ", summary[ip][step].correction)
 
 
 # -------------------- Description of the simulation --------------------
