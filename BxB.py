@@ -705,7 +705,7 @@ def beam_beam(kicked, kickers, sim, quiet = False):
                  n_step = n_step,
                  n_points = sim.n_points,
                  n_turns = _to_ints(sim.n_turns),
-                 kick_model = c_char_p(sim.kick_model),
+                 kick_model = c_char_p(sim.kick_model.encode('utf-8')),
                  n_sigma_cut = sim.n_sigma_cut,
                  density_and_field_interpolators_n_cells_along_grid_side =
                  _to_ints(sim.density_and_field_interpolators_n_cells_along_grid_side),
@@ -713,8 +713,8 @@ def beam_beam(kicked, kickers, sim, quiet = False):
                  select_one_turn_out_of = sim.select_one_turn_out_of,
                  seed = sim.seed,
                  n_threads = sim.n_threads,
-                 output_dir = c_char_p(sim.output_dir),
-                 output = c_char_p(sim.output))
+                 output_dir = c_char_p(sim.output_dir.encode('utf-8')),
+                 output = c_char_p(sim.output.encode('utf-8')))
   summary = (_C_Summary*(n_ip*n_step))()
   _bb_c.beam_beam(byref(kicked_c), byref(kickers_c), byref(sim_c), summary, c_bool(quiet))
   return [[_python_summary(summary[ip * n_step + step]) for step in range(n_step)] for ip in range(n_ip)]
