@@ -23,6 +23,7 @@
 #include <map>
 #include <iterator> // for istream_iterator
 #include <sstream>  // for istringstream
+#include <climits>  // for LLONG_MAX
 #include "output.hh"
 
 using namespace std;
