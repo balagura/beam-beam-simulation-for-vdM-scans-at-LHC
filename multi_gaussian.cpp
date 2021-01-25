@@ -143,18 +143,20 @@ double Multi_XY_Gaussian_bunches::Kicked_MultiG::not_normalized_r_density(double
 string Multi_XY_Gaussian_bunches::Kicker_MultiG::reset(const vector<double>& sigmas,
 						       const vector<double>& weights,
 						       double sigma_z_projection) {
-  string err = Multi_XY_Gaussian_bunches::MultiG_SigSq::reset(sigmas, weights);
-  if (err != "") return err;
-  sig_z_projection_sq = sigma_z_projection * sigma_z_projection;
-  exp_w.resize(w.size());
-  for (size_t i=0; i<exp_w.size(); ++i) {
-    exp_w[i] = w[i] / sqrt(2 * M_PI) / sqrt(sig_sq[i] + sig_z_projection_sq);
+  {
+    double sig_z_projection_sq = sigma_z_projection * sigma_z_projection;
+    vector<double> s(sigmas);
+    for (size_t i=0; i<sigmas.size(); ++i) s[i] = sqrt(sigmas[i] * sigmas[i] + sig_z_projection_sq);
+    string err = Multi_XY_Gaussian_bunches::MultiG_SigSq::reset(s, weights);
+    if (err != "") return err;
   }
+  exp_w.resize(w.size());
+  for (size_t i=0; i<exp_w.size(); ++i) exp_w[i] = w[i] / sqrt(2 * M_PI) / sig_sq[i];
   return "";
 }
 double Multi_XY_Gaussian_bunches::Kicker_MultiG::density(double x) const {
   double prob = 0;
-  for (size_t i=0; i<sig.size(); ++i) prob += exp_w[i] * g_sig2(x, sig_sq[i] + sig_z_projection_sq);
+  for (size_t i=0; i<sig.size(); ++i) prob += exp_w[i] * g_sig2(x, sig_sq[i]);
   return prob;
 }
 //
@@ -207,25 +209,16 @@ bool operator<(const Multi_XY_Gaussian_bunches::MultiG& a, const Multi_XY_Gaussi
   return a.sig < b.sig || (a.sig == b.sig && a.w < b.w);
   // vectors and arrays are compared by default lexicographically
 }
-bool operator<(const Multi_XY_Gaussian_bunches::Kicker_MultiG& a,
-	       const Multi_XY_Gaussian_bunches::Kicker_MultiG& b) {
-  return
-    (a.sig < b.sig) ||
-    (a.sig == b.sig && a.w < b.w) ||
-    (a.sig == b.sig && a.w == b.w && a.sig_z_projection_sq < b.sig_z_projection_sq);
-  // vectors and arrays are compared by default lexicographically
-}
 void Multi_XY_Gaussian_bunches::reset_interpolators(int n_density_cells,
 						    int n_field_cells,
 						    vector<vector<double> >* position) {
   if (n_density_cells > 0) {
     // group identical X or Y kicker bunch ditributions into a map
-    // Use Kicker_MultiG as a key since densities depend on sig_z_projection
-    map<Kicker_MultiG, vector<LI::Ip_Coor> > m;
+    map<MultiG, vector<LI::Ip_Coor> > m;
     // m[MultiG_X + Y] = vector of kicker (ip, coor)
     for (int ip = 0; ip < int(kicker.size()); ++ip) {
       for (int coor=0; coor<2; ++coor) {
-	const Kicker_MultiG& mg_XY = kicker[ip][coor];
+	const MultiG& mg_XY = kicker[ip][coor];
 	LI::Ip_Coor i; i.ip = ip; i.coor = coor;
 	m[mg_XY].push_back(i);
       }
@@ -426,9 +419,9 @@ double Multi_XY_Gaussian_bunches::overlap_integral(double x, double y, int ip) c
     for (size_t iy1=0; iy1<y1.sig.size(); ++iy1) {
       for (size_t ix2=0; ix2<x2.sig.size(); ++ix2) {
 	for (size_t iy2=0; iy2<y2.sig.size(); ++iy2) {
-	  // use sqrt(beta)-scaled kicked sig_sq here and add sig_z_projection_sq
-	  double vdm_sigx_sq = sig_sq_x1[ix1] + x2.sig_sq[ix2] + x2.sig_z_projection_sq; 
-	  double vdm_sigy_sq = sig_sq_y1[iy1] + y2.sig_sq[iy2] + y2.sig_z_projection_sq;
+	  // use sqrt(beta)-scaled kicked sig_sq here
+	  double vdm_sigx_sq = sig_sq_x1[ix1] + x2.sig_sq[ix2]; 
+	  double vdm_sigy_sq = sig_sq_y1[iy1] + y2.sig_sq[iy2];
 	  o += x1.w[ix1] * y1.w[iy1] * x2.w[ix2] * y2.w[iy2] *
 	    0.5 / M_PI / sqrt(vdm_sigx_sq * vdm_sigy_sq) *
 	    exp(-0.5 * (x_sq / vdm_sigx_sq + y_sq / vdm_sigy_sq));
