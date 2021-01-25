@@ -203,14 +203,10 @@ protected:
     //
     vector<double> exp_w;
     const Linear_interpolator *li_density;
-    double sig_z_projection_sq;
   };
   // to make maps with MultiG and Kicker_MultiG keys, this is needed in
   // reset_interpolators().
-  // MultiG is for field (to create bis), not dependent on sig_z_projection,
-  // Kicker_MultiG is for densities (lis) dependent on sig_z_projection
   friend bool operator<(const MultiG&, const MultiG&);
-  friend bool operator<(const Kicker_MultiG&, const Kicker_MultiG&);
 
   struct Kicker_MultiG_XY : public array<Kicker_MultiG, 2> {
     Kicker_MultiG_XY() : bi_field(nullptr) {}
