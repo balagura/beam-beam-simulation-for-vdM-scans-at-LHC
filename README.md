@@ -73,8 +73,8 @@ git clone https://github.com/balagura/beam-beam-simulation-for-vdM-scans-at-LHC/
 make <desired target>
 ```
 and run the program for the appropriately modified set of
-input parameters. Their full description can be found in `BxB_example.py`,
-`BxB_example.txt` or in `bb.hh`. Alternatively, one can install R package from
+input parameters. Their full description can be found in `BxB_example.py`, `BxB.py`
+`BxB_example.txt` or in `bb_C.h`. Alternatively, one can install R package from
 https://github.com/balagura/BxB and type in R: 
 ```
 library(BxB)
